@@ -82,7 +82,15 @@ function Hero() {
             </div>
 
             <h1 className="mt-4 w-full text-[1.65rem] font-extrabold leading-[1.16] tracking-tight text-ink text-left sm:text-3xl md:text-4xl lg:text-[2.75rem]">
-              Report citizen problems and view reported problems across Andhra Pradesh.
+              Report citizen{" "}
+              <span className="font-serif italic font-extrabold text-red-600 dark:text-red-500 tracking-normal inline-block">
+                problems
+              </span>{" "}
+              and view reported{" "}
+              <span className="font-serif italic font-extrabold text-red-600 dark:text-red-500 tracking-normal inline-block">
+                problems
+              </span>{" "}
+              across Andhra Pradesh.
             </h1>
 
             <p className="mt-3.5 w-full text-xs sm:text-sm md:text-base leading-relaxed text-ink-2 font-normal text-left">
