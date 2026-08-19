@@ -38,6 +38,12 @@ __pycache__/
 backend/.pytest_cache/
 .ruff_cache/
 
+# Agent configurations & Skills
+.agents/
+AGENTS.md
+GEMINI.md
+.gemini/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
