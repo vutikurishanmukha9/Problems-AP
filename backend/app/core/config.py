@@ -42,6 +42,10 @@ class Settings(BaseSettings):
             v = v.replace("postgres://", "postgresql+asyncpg://", 1)
         elif v.startswith("postgresql://") and not v.startswith("postgresql+asyncpg://"):
             v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        
+        # asyncpg does not accept ?sslmode= (it expects ?ssl=)
+        if "sslmode=" in v:
+            v = v.replace("sslmode=", "ssl=")
         return v
 
     model_config = SettingsConfigDict(
