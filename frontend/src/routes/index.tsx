@@ -112,16 +112,16 @@ function Hero() {
             </div>
 
             {/* Trust Badges */}
-            <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-ink-2 font-medium">
-              <span className="flex items-center gap-1.5">
+            <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-ink-2 font-medium">
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 <ShieldCheck className="size-4 shrink-0 text-ok" />
                 100% Anonymous
               </span>
-              <span className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 <Activity className="size-4 shrink-0 text-accent" />
                 Live Civic Aggregations
               </span>
-              <span className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 <MapPin className="size-4 shrink-0 text-info" />
                 175 Assembly Seats
               </span>
