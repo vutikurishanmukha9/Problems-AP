@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.core.security import sanitize_input
 from app.models.problem import Problem, ProblemEvidence, ProblemTimeline
 from app.models.taxonomy import Constituency, District
 from app.schemas.problem import (
@@ -242,13 +243,13 @@ async def report_problem(payload: ProblemCreate, db: AsyncSession = Depends(get_
 
     problem = Problem(
         id=problem_id,
-        title=payload.title.strip(),
-        description=payload.description.strip(),
+        title=sanitize_input(payload.title),
+        description=sanitize_input(payload.description),
         category=payload.category.strip().lower(),
         department=dept,
         constituency=payload.constituency.strip() if payload.constituency else None,
         district=payload.district.strip(),
-        area=payload.area.strip(),
+        area=sanitize_input(payload.area),
         latitude=payload.latitude,
         longitude=payload.longitude,
         status="reported",

@@ -10,6 +10,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.api.v1 import api_router
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, Base, engine
+from app.core.security import RateLimiterAndOriginGuardMiddleware
 from app.core.seed import seed_database
 from app.services.cloudinary_service import init_cloudinary
 
@@ -50,9 +51,9 @@ app = FastAPI(
     version=settings.VERSION,
     description="Public grievance and citizen problem reporting platform for Andhra Pradesh across 175 assembly constituencies and 57 ministries.",
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url=None if settings.ENVIRONMENT == "production" else "/docs",
+    redoc_url=None if settings.ENVIRONMENT == "production" else "/redoc",
+    openapi_url=None if settings.ENVIRONMENT == "production" else "/openapi.json",
 )
 
 
@@ -113,6 +114,7 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
 
 # Register middlewares
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimiterAndOriginGuardMiddleware)
 app.add_middleware(RequestCorrelationAndTimingMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware)
 

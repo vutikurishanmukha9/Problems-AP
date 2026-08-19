@@ -10,6 +10,8 @@ import {
 const API_BASE_URL =
   import.meta.env?.["VITE_API_URL"] || "http://localhost:8000/api/v1";
 
+const PLATFORM_KEY = "ap-problems-civic-v1-secure-token";
+
 export interface ProblemFilters {
   category?: string;
   department?: string;
@@ -116,6 +118,7 @@ async function fetchWithTimeout(
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
+        "X-AP-Platform-Key": PLATFORM_KEY,
         ...options.headers,
       },
     });
@@ -292,6 +295,9 @@ export const apiClient = {
       const res = await fetch(`${API_BASE_URL}/problems/upload-evidence`, {
         method: "POST",
         body: formData,
+        headers: {
+          "X-AP-Platform-Key": PLATFORM_KEY,
+        },
         signal: controller.signal,
       });
 

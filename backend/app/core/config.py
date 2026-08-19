@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: Optional[str] = None
     CLOUDINARY_API_SECRET: Optional[str] = None
     
+    # Secret internal platform key for trusted client-server communication
+    PLATFORM_SECRET_KEY: str = "ap-problems-civic-v1-secure-token"
+    
     # Allowed CORS Origins for frontend integration (Vercel, localhost, etc.)
     CORS_ORIGINS: List[str] = [
         "https://ap-problems.vercel.app",
@@ -31,7 +34,6 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
         "http://127.0.0.1:8080",
         "http://127.0.0.1:8081",
-        "*"
     ]
     
     ENVIRONMENT: str = "development"

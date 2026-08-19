@@ -17,7 +17,7 @@ import { ProblemCard } from "@/components/problem-card";
 import { ButtonLink, Section } from "@/components/ui-kit";
 import { type Problem, departmentStats, districtStats } from "@/data/problems";
 import { CATEGORIES, MINISTRIES_DATA, DISTRICTS_DATA } from "@/data/taxonomy";
-import { apiClient, type OverviewStatistics } from "@/lib/api-client";
+import { apiClient } from "@/lib/api-client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
