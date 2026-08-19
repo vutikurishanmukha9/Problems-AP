@@ -50,12 +50,7 @@ function Home() {
 }
 
 function Hero() {
-  const [stats, setStats] = useState<OverviewStatistics>({
-    total_problems: 0,
-    constituencies_covered: 175,
-    ministries_mapped: 57,
-    districts_active: 28,
-  });
+  const [totalProblems, setTotalProblems] = useState<number>(0);
 
   useEffect(() => {
     let active = true;
@@ -63,7 +58,7 @@ function Hero() {
       try {
         const live = await apiClient.getOverviewStatistics();
         if (active && live) {
-          setStats(live);
+          setTotalProblems(live.total_problems ?? 0);
         }
       } catch {
         // Fallback
@@ -147,7 +142,7 @@ function Hero() {
                   Problems Shared
                 </p>
                 <p className="mt-1 text-xl sm:text-2xl font-extrabold tabular-nums tracking-tight text-accent">
-                  {stats.total_problems.toLocaleString("en-IN")}
+                  {totalProblems.toLocaleString("en-IN")}
                 </p>
               </div>
               <div className="rounded-xl border border-line bg-surface-2/60 p-3 sm:p-3.5">
@@ -155,7 +150,7 @@ function Hero() {
                   Constituencies
                 </p>
                 <p className="mt-1 text-xl sm:text-2xl font-extrabold tabular-nums tracking-tight text-ink">
-                  {stats.constituencies_covered}
+                  175
                 </p>
               </div>
               <div className="rounded-xl border border-line bg-surface-2/60 p-3 sm:p-3.5">
@@ -163,7 +158,7 @@ function Hero() {
                   Ministries Mapped
                 </p>
                 <p className="mt-1 text-xl sm:text-2xl font-extrabold tabular-nums tracking-tight text-ink">
-                  {stats.ministries_mapped}
+                  57
                 </p>
               </div>
               <div className="rounded-xl border border-line bg-surface-2/60 p-3 sm:p-3.5">
@@ -171,7 +166,7 @@ function Hero() {
                   Districts Active
                 </p>
                 <p className="mt-1 text-xl sm:text-2xl font-extrabold tabular-nums tracking-tight text-ink">
-                  {stats.districts_active}
+                  28
                 </p>
               </div>
             </div>
