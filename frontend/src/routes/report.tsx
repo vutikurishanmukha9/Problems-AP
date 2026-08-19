@@ -237,8 +237,11 @@ function ReportPage() {
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">
+              <ButtonLink to={`/problems/${submitted.ref}`}>
+                View Problem Page
+              </ButtonLink>
               <ButtonLink to="/explore" variant="secondary">
-                See reported problems
+                See all reported problems
               </ButtonLink>
               <Button
                 variant="quiet"
