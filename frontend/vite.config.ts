@@ -29,7 +29,7 @@ export default defineConfig(({ command }) => ({
     tanstackStart({
       server: { entry: "server" },
     }),
-    command === "build" && nitro({ preset: "cloudflare-module" }),
+    command === "build" && nitro({ preset: "vercel" }),
     react(),
   ].filter(Boolean),
 }));
