@@ -319,29 +319,27 @@ export const getProblem = (id: string) =>
   PROBLEMS.find((p) => p.id.toLowerCase() === id.toLowerCase());
 
 export const SNAPSHOT = {
-  reported: PROBLEMS.reduce((n, p) => n + p.reports, 0) * 12 + 418,
-  underReview: 486,
-  resolved: 1132,
-  thisMonth: 742,
+  totalShared: 1748,
+  constituenciesCovered: 175,
+  ministriesMapped: 57,
+  districtsActive: 28,
 };
 
 export function departmentStats() {
-  const map = new Map<string, { total: number; open: number }>();
+  const map = new Map<string, { total: number }>();
   for (const p of PROBLEMS) {
-    const cur = map.get(p.department) ?? { total: 0, open: 0 };
+    const cur = map.get(p.department) ?? { total: 0 };
     cur.total += p.reports;
-    if (p.status !== "resolved" && p.status !== "closed") cur.open += p.reports;
     map.set(p.department, cur);
   }
   return map;
 }
 
 export function districtStats() {
-  const map = new Map<string, { total: number; open: number }>();
+  const map = new Map<string, { total: number }>();
   for (const p of PROBLEMS) {
-    const cur = map.get(p.district) ?? { total: 0, open: 0 };
+    const cur = map.get(p.district) ?? { total: 0 };
     cur.total += p.reports;
-    if (p.status !== "resolved" && p.status !== "closed") cur.open += p.reports;
     map.set(p.district, cur);
   }
   return map;

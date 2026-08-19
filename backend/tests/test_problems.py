@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 from httpx import AsyncClient
 
@@ -52,7 +53,10 @@ async def test_get_single_problem_by_id(client: AsyncClient):
 async def test_get_nonexistent_problem_returns_404(client: AsyncClient):
     response = await client.get("/api/v1/problems/AP-NONEXISTENT")
     assert response.status_code == 404
-    assert "not found" in response.json()["detail"].lower()
+    # Check detail string or structured error detail
+    body = response.json()
+    detail = body.get("detail") or str(body)
+    assert "not found" in detail.lower()
 
 
 @pytest.mark.asyncio
@@ -92,3 +96,19 @@ async def test_problem_upvote_signal(client: AsyncClient):
     data = response.json()
     assert data["success"] is True
     assert data["upvotes_count"] == 49  # Initial was 48
+
+
+@pytest.mark.asyncio
+async def test_concurrent_upvotes_are_atomic(client: AsyncClient):
+    # Send 5 concurrent upvotes to the same problem
+    tasks = [client.post("/api/v1/problems/AP-2026-0791/signal") for _ in range(5)]
+    responses = await asyncio.gather(*tasks)
+
+    for resp in responses:
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+
+    # Check final upvote count (initial 32 + 5 = 37)
+    fetch_resp = await client.get("/api/v1/problems/AP-2026-0791")
+    assert fetch_resp.status_code == 200
+    assert fetch_resp.json()["upvotes_count"] == 37

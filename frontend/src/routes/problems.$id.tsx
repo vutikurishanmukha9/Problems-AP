@@ -1,11 +1,11 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { MapPin, Users, Repeat, FileText } from "lucide-react";
+import { useState } from "react";
+import { MapPin, Users, Repeat, FileText, ThumbsUp, Check, Clock } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { ProblemStatus } from "@/components/problem-status";
 import { ProblemMap } from "@/components/problem-map";
 import { ProblemRow } from "@/components/problem-card";
-import { ButtonLink } from "@/components/ui-kit";
+import { Button, ButtonLink } from "@/components/ui-kit";
 import {
   getProblem,
   PROBLEMS,
@@ -16,6 +16,7 @@ import {
 } from "@/data/problems";
 import { categoryLabel, getMinisterForDepartment } from "@/data/taxonomy";
 import { getMLAForConstituency } from "@/data/constituencies";
+import { apiClient } from "@/lib/api-client";
 
 export const Route = createFileRoute("/problems/$id")({
   loader: ({ params }: { params: { id: string } }) => {
@@ -34,7 +35,7 @@ export const Route = createFileRoute("/problems/$id")({
     }
     const p = loaderData.problem;
     const title = `${p.title} — ${p.area}, ${p.district}`;
-    const description = `${categoryLabel(p.category)} problem reported in ${p.area}, ${p.district}. ${p.reports} citizen reports. Handled by ${p.department}.`;
+    const description = `${categoryLabel(p.category)} problem shared in ${p.area}, ${p.district}. ${p.reports} citizen voices. Handled by ${p.department}.`;
     return {
       meta: [
         { title },
@@ -68,11 +69,33 @@ function ProblemNotFound() {
 
 function ProblemDetail() {
   const { problem: p } = Route.useLoaderData();
+  const [reportsCount, setReportsCount] = useState<number>(p.reports);
+  const [signaled, setSignaled] = useState(false);
+  const [signaling, setSignaling] = useState(false);
+
   const others = PROBLEMS.filter((x) => x.id !== p.id);
   const related = [
     ...others.filter((x) => x.category === p.category || x.district === p.district),
     ...others.filter((x) => x.category !== p.category && x.district !== p.district),
   ].slice(0, 4);
+
+  const handleSignal = async () => {
+    if (signaled || signaling) return;
+    setSignaling(true);
+    setReportsCount((prev) => prev + 1);
+    setSignaled(true);
+
+    try {
+      const res = await apiClient.signalProblem(p.id);
+      if (res.upvotesCount) {
+        setReportsCount(res.upvotesCount);
+      }
+    } catch {
+      // Retain optimistic count on failure
+    } finally {
+      setSignaling(false);
+    }
+  };
 
   return (
     <>
@@ -90,19 +113,19 @@ function ProblemDetail() {
               <span>{categoryLabel(p.category)}</span>
             </nav>
 
-            <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+            <div className="mt-3.5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
               <div className="min-w-0">
-                <h1 className="max-w-3xl text-xl font-semibold sm:text-2xl sm:leading-snug">
+                <h1 className="max-w-3xl text-2xl font-extrabold sm:text-3xl sm:leading-snug tracking-tight text-ink">
                   {p.title}
                 </h1>
-                <dl className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs sm:text-sm">
+                <dl className="mt-3.5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs sm:text-sm">
                   <div className="flex items-center gap-1.5">
-                    <dt className="text-ink-2">Category:</dt>
-                    <dd className="font-medium text-ink">{categoryLabel(p.category)}</dd>
+                    <dt className="text-ink-3 font-medium">Category:</dt>
+                    <dd className="font-bold text-ink">{categoryLabel(p.category)}</dd>
                   </div>
                   <div className="flex min-w-0 items-center gap-1.5">
-                    <dt className="text-ink-2">Department:</dt>
-                    <dd className="truncate font-medium text-ink">
+                    <dt className="text-ink-3 font-medium">Department:</dt>
+                    <dd className="truncate font-semibold text-ink">
                       {p.department}
                       {getMinisterForDepartment(p.department) ? (
                         <span className="ml-1 text-xs font-normal text-ink-2">
@@ -113,8 +136,8 @@ function ProblemDetail() {
                   </div>
                   {p.constituency && (
                     <div className="flex items-center gap-1.5">
-                      <dt className="text-ink-2">Constituency:</dt>
-                      <dd className="font-semibold text-accent">
+                      <dt className="text-ink-3 font-medium">Constituency:</dt>
+                      <dd className="font-bold text-accent">
                         {p.constituency}
                         {getMLAForConstituency(p.constituency) ? (
                           <span className="ml-1 text-xs font-normal text-ink-2">
@@ -125,40 +148,48 @@ function ProblemDetail() {
                     </div>
                   )}
                   <div className="flex items-center gap-1.5">
-                    <dt className="text-ink-2">Ref:</dt>
-                    <dd className="font-mono text-xs text-ink-3">{p.id}</dd>
+                    <dt className="text-ink-3 font-medium">District:</dt>
+                    <dd className="font-bold text-ink">{p.district}</dd>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <dt className="text-ink-3 font-medium">Ref ID:</dt>
+                    <dd className="font-mono text-xs font-bold text-accent bg-accent-soft px-2 py-0.5 rounded border border-accent/20">
+                      {p.id}
+                    </dd>
                   </div>
                 </dl>
-                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-2">
-                  <ProblemStatus status={p.status} />
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin aria-hidden className="size-3.5 text-ink-3" />
+                <div className="mt-3.5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-2">
+                  <span className="inline-flex items-center gap-1 font-medium">
+                    <MapPin aria-hidden className="size-3.5 text-accent" />
                     {p.area}
                     {p.constituency && p.constituency !== p.area
                       ? ` (${p.constituency})`
                       : ""}, {p.district}
                   </span>
-                  <span>Reported {formatDateTime(p.reportedAt)}</span>
+                  <span className="inline-flex items-center gap-1 text-ink-3 font-medium">
+                    <Clock aria-hidden className="size-3.5" />
+                    Shared {formatDateTime(p.reportedAt)}
+                  </span>
                 </div>
               </div>
-              <ButtonLink to="/report" size="sm" className="shrink-0">
-                Report a similar problem
+              <ButtonLink to="/report" size="sm" className="shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
+                Share a similar problem
               </ButtonLink>
             </div>
           </div>
         </div>
 
-        <div className="container-ap grid gap-6 py-6 sm:py-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <div className="container-ap grid gap-6 py-7 sm:py-9 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
           <div className="min-w-0 space-y-6">
-            <section className="rounded-xl border border-line bg-surface p-5">
-              <h2 className="text-sm font-semibold">What was reported</h2>
-              <p className="mt-2 text-sm leading-relaxed text-ink">{p.description}</p>
+            <section className="rounded-xl border border-line bg-surface p-6 shadow-xs">
+              <h2 className="text-base font-bold tracking-tight text-ink">What was reported</h2>
+              <p className="mt-2.5 text-sm leading-relaxed text-ink font-normal">{p.description}</p>
             </section>
 
             {p.evidence && p.evidence.length > 0 && (
-              <section className="rounded-xl border border-line bg-surface p-5">
-                <h2 className="text-sm font-semibold">Evidence</h2>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <section className="rounded-xl border border-line bg-surface p-6 shadow-xs">
+                <h2 className="text-base font-bold tracking-tight text-ink">Citizen Evidence Photos</h2>
+                <div className="mt-3.5 grid gap-3.5 sm:grid-cols-2">
                   {p.evidence.map((src: string, i: number) => (
                     <img
                       key={src}
@@ -167,91 +198,91 @@ function ProblemDetail() {
                       loading="lazy"
                       width={600}
                       height={400}
-                      className="w-full rounded-lg border border-line object-cover"
+                      className="w-full rounded-lg border border-line object-cover shadow-2xs"
                     />
                   ))}
                 </div>
               </section>
             )}
 
-            <section className="rounded-xl border border-line bg-surface p-5">
-              <h2 className="text-sm font-semibold">Location Area</h2>
-              <p className="mt-1 text-xs text-ink-2">
+            <section className="rounded-xl border border-line bg-surface p-6 shadow-xs">
+              <h2 className="text-base font-bold tracking-tight text-ink">Location Area</h2>
+              <p className="mt-1 text-xs text-ink-2 font-medium">
                 Approximate vicinity map. Exact coordinates remain private.
               </p>
-              <div className="mt-3">
-                <ProblemMap problems={[p]} selectedId={p.id} height="260px" />
+              <div className="mt-3.5">
+                <ProblemMap problems={[p]} selectedId={p.id} height="280px" />
               </div>
             </section>
 
-            <section className="rounded-xl border border-line bg-surface p-5">
-              <h2 className="text-sm font-semibold">Timeline & Updates</h2>
-              <ol className="mt-3 border-l border-line pl-4">
+            <section className="rounded-xl border border-line bg-surface p-6 shadow-xs">
+              <h2 className="text-base font-bold tracking-tight text-ink">Activity Log</h2>
+              <ol className="mt-3.5 border-l-2 border-line-strong pl-4">
                 {p.timeline.map((t: TimelineEntry, i: number) => (
-                  <li key={i} className="relative pb-4 last:pb-0">
+                  <li key={i} className="relative pb-4.5 last:pb-0">
                     <span
                       aria-hidden
-                      className="absolute -left-[21px] top-1.5 size-2 rounded-full border border-line bg-surface"
+                      className="absolute -left-[21px] top-1.5 size-2.5 rounded-full border-2 border-accent bg-surface"
                     />
-                    <p className="text-xs font-semibold">{t.label}</p>
+                    <p className="text-xs font-bold text-ink">{t.label}</p>
                     {t.detail && (
                       <p className="mt-0.5 text-xs leading-relaxed text-ink-2">{t.detail}</p>
                     )}
-                    <p className="mt-0.5 text-[0.6875rem] text-ink-3">{formatDateTime(t.at)}</p>
+                    <p className="mt-0.5 text-[0.6875rem] text-ink-3 font-medium">{formatDateTime(t.at)}</p>
                   </li>
                 ))}
               </ol>
             </section>
           </div>
 
-          <aside className="min-w-0 space-y-4">
-            <div className="rounded-xl border border-line bg-surface p-4">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-2">
-                Community signal
+          <aside className="min-w-0 space-y-4.5">
+            {/* Community Signal Card with Live Action */}
+            <div className="rounded-xl border border-line bg-surface p-6 shadow-xs">
+              <h2 className="text-xs font-extrabold uppercase tracking-wider text-ink-2">
+                Community voices
               </h2>
-              <ul className="mt-3 space-y-2.5 text-xs">
-                <li className="flex items-start gap-2">
-                  <Users aria-hidden className="mt-0.5 size-3.5 text-ink-3" />
-                  <span>
-                    Reported by <span className="font-medium text-ink">{p.reports} citizens</span>
+              <ul className="mt-3.5 space-y-3 text-xs">
+                <li className="flex items-start gap-2.5">
+                  <Users aria-hidden className="mt-0.5 size-4 text-accent shrink-0" />
+                  <span className="text-ink">
+                    Shared by <span className="font-extrabold text-accent">{reportsCount} citizens</span>
                   </span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <FileText aria-hidden className="mt-0.5 size-3.5 text-ink-3" />
-                  <span>
-                    Confirmed by{" "}
-                    <span className="font-medium text-ink">{p.confirmations} local reports</span>
+                <li className="flex items-start gap-2.5">
+                  <FileText aria-hidden className="mt-0.5 size-4 text-ink-3 shrink-0" />
+                  <span className="text-ink">
+                    Supported by{" "}
+                    <span className="font-bold text-ink">{p.confirmations} local citizens</span>
                   </span>
                 </li>
                 {p.recurring && (
-                  <li className="flex items-start gap-2">
-                    <Repeat aria-hidden className="mt-0.5 size-3.5 text-ink-3" />
-                    <span>Frequently recurring issue in this locality</span>
+                  <li className="flex items-start gap-2.5">
+                    <Repeat aria-hidden className="mt-0.5 size-4 text-warn shrink-0" />
+                    <span className="font-medium text-ink-2">Frequently recurring issue in this locality</span>
                   </li>
                 )}
               </ul>
-            </div>
 
-            {p.officialResponse ? (
-              <div className="rounded-xl border border-line bg-surface p-4">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-2">
-                  Official response
-                </h2>
-                <p className="mt-2 text-xs leading-relaxed text-ink">{p.officialResponse.body}</p>
-                <p className="mt-2 text-[0.6875rem] text-ink-3">
-                  {p.officialResponse.from} · {formatDateTime(p.officialResponse.at)}
-                </p>
+              <div className="mt-4 border-t border-line pt-3.5">
+                {signaled ? (
+                  <div className="flex items-center gap-2 rounded-lg bg-ok/10 px-3 py-2 text-xs font-medium text-ok">
+                    <Check className="size-4 shrink-0" />
+                    <span>Your signal has been recorded. Thank you!</span>
+                  </div>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="w-full"
+                    onClick={handleSignal}
+                    disabled={signaling}
+                  >
+                    <ThumbsUp className="size-3.5" />
+                    I also face this problem (+1)
+                  </Button>
+                )}
               </div>
-            ) : (
-              <div className="rounded-xl border border-line bg-surface p-4">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-2">
-                  Official response
-                </h2>
-                <p className="mt-2 text-xs text-ink-3">
-                  No official response recorded yet for this report.
-                </p>
-              </div>
-            )}
+            </div>
 
             <div className="rounded-xl border border-line bg-surface">
               <h2 className="px-4 pt-3.5 text-xs font-semibold uppercase tracking-wider text-ink-2">

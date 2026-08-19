@@ -1,16 +1,19 @@
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base, get_db
 from app.core.seed import seed_database
 from app.main import app
 
-# In-memory test database
+# In-memory test database using StaticPool to share connection across sessions
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 test_engine = create_async_engine(
     TEST_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
     echo=False,
     future=True,
 )
@@ -25,24 +28,24 @@ TestingSessionLocal = async_sessionmaker(
 
 
 @pytest_asyncio.fixture(scope="function")
-async def db_session():
-    """Provides a transactional in-memory database session with fresh schema and seeds."""
+async def client():
+    """Provides an AsyncClient with fresh in-memory database and per-request session isolation."""
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     async with TestingSessionLocal() as session:
         await seed_database(session)
-        yield session
 
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-
-
-@pytest_asyncio.fixture(scope="function")
-async def client(db_session: AsyncSession):
-    """Provides an AsyncClient for FastAPI endpoint testing with overridden get_db."""
     async def override_get_db():
-        yield db_session
+        async with TestingSessionLocal() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+            finally:
+                await session.close()
 
     app.dependency_overrides[get_db] = override_get_db
 
@@ -51,3 +54,6 @@ async def client(db_session: AsyncSession):
         yield ac
 
     app.dependency_overrides.clear()
+
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)

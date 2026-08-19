@@ -5,10 +5,10 @@ const MapCanvas = lazy(() => import("./map-canvas"));
 
 export type ProblemMapProps = {
   problems: Problem[];
-  height?: string;
-  interactive?: boolean;
-  selectedId?: string;
-  className?: string;
+  height?: string | undefined;
+  interactive?: boolean | undefined;
+  selectedId?: string | undefined;
+  className?: string | undefined;
 };
 
 /**

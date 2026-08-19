@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import desc, func, or_, select
+from sqlalchemy import desc, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -252,23 +252,32 @@ async def report_problem(payload: ProblemCreate, db: AsyncSession = Depends(get_
 
 @router.post("/{problem_id}/signal", response_model=ProblemSignalResponse)
 async def upvote_problem_signal(problem_id: str, db: AsyncSession = Depends(get_db)):
-    """Community affirmation signal ('I also face this problem') to raise priority."""
-    query = select(Problem).where(func.lower(Problem.id) == problem_id.strip().lower())
-    result = await db.execute(query)
-    problem = result.scalars().first()
+    """Atomic community affirmation signal ('I also face this problem') safe under concurrent clients."""
+    clean_id = problem_id.strip()
 
-    if not problem:
+    stmt = (
+        update(Problem)
+        .where(func.lower(Problem.id) == clean_id.lower())
+        .values(
+            upvotes_count=Problem.upvotes_count + 1,
+            updated_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        .returning(Problem.id, Problem.upvotes_count)
+    )
+    result = await db.execute(stmt)
+    row = result.first()
+
+    if not row:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Problem with ID '{problem_id}' not found.",
         )
 
-    problem.upvotes_count += 1
     await db.commit()
 
     return ProblemSignalResponse(
         success=True,
-        problem_id=problem.id,
-        upvotes_count=problem.upvotes_count,
+        problem_id=row.id,
+        upvotes_count=row.upvotes_count,
         message="Your signal has been recorded. Higher citizen count increases priority.",
     )

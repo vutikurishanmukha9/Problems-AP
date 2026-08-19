@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState, type ChangeEvent } from "react";
+import { createFileRoute } from '@tanstack/react-router'
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { Search, SlidersHorizontal, LayoutGrid, Rows3 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -11,8 +11,8 @@ import {
   CONSTITUENCY_DATA,
   MINISTRIES_DATA,
   DISTRICTS_DATA,
-  STATUSES,
 } from "@/data/taxonomy";
+import { apiClient } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/explore")({
@@ -22,13 +22,13 @@ export const Route = createFileRoute("/explore")({
       {
         name: "description",
         content:
-          "Search and filter citizen-reported problems in Andhra Pradesh by category, department, constituency, location and status.",
+          "Search and filter citizen-reported problems in Andhra Pradesh by category, ministry, constituency, and district.",
       },
       { property: "og:title", content: "Explore Problems — Problems@AP" },
       {
         property: "og:description",
         content:
-          "Search and filter citizen-reported problems across Andhra Pradesh by category, department, constituency, location and status.",
+          "Search and filter citizen-reported problems across Andhra Pradesh by category, ministry, constituency, and district.",
       },
     ],
   }),
@@ -38,24 +38,46 @@ export const Route = createFileRoute("/explore")({
 type Sort = "recent" | "nearby" | "most-reported";
 
 function Explore() {
+  const [allProblems, setAllProblems] = useState<Problem[]>(PROBLEMS);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [department, setDepartment] = useState("all");
   const [constituency, setConstituency] = useState("all");
   const [district, setDistrict] = useState("all");
-  const [status, setStatus] = useState("all");
   const [sort, setSort] = useState<Sort>("recent");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  // Load live problems from backend and merge with seed
+  useEffect(() => {
+    let active = true;
+    async function loadProblems() {
+      try {
+        const res = await apiClient.getProblems({ pageSize: 100 });
+        if (active && res.items && res.items.length > 0) {
+          setAllProblems((prev) => {
+            const existingIds = new Set(prev.map((p) => p.id));
+            const newFromApi = res.items.filter((p) => !existingIds.has(p.id));
+            return [...newFromApi, ...prev];
+          });
+        }
+      } catch {
+        // Fallback to initial
+      }
+    }
+    loadProblems();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = PROBLEMS.filter((p) => {
+    const list = allProblems.filter((p) => {
       if (category !== "all" && p.category !== category) return false;
       if (department !== "all" && p.department !== department) return false;
       if (constituency !== "all" && p.constituency !== constituency) return false;
       if (district !== "all" && p.district !== district) return false;
-      if (status !== "all" && p.status !== status) return false;
       if (
         q &&
         !`${p.title} ${p.description} ${p.area} ${p.constituency || ""} ${p.district} ${p.department}`
@@ -70,14 +92,13 @@ function Explore() {
       if (sort === "most-reported") return b.reports - a.reports;
       return +new Date(b.reportedAt) - +new Date(a.reportedAt);
     });
-  }, [query, category, department, constituency, district, status, sort]);
+  }, [allProblems, query, category, department, constituency, district, sort]);
 
   const reset = () => {
     setCategory("all");
     setDepartment("all");
     setConstituency("all");
     setDistrict("all");
-    setStatus("all");
     setQuery("");
   };
 
@@ -106,16 +127,16 @@ function Explore() {
                   id="q"
                   value={query}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-                  placeholder="Search problems, areas, constituencies or departments"
-                  className="h-10 w-full rounded-full border border-line bg-surface pl-10 pr-4 text-sm placeholder:text-ink-3"
+                  placeholder="Search by keywords, constituency, area, district, or ministry..."
+                  className="h-10 w-full rounded-full border border-line bg-canvas pl-10 pr-4 text-xs sm:text-sm placeholder:text-ink-3 focus:bg-surface"
                 />
               </div>
+
               <Button
-                variant="secondary"
+                variant={filtersOpen ? "primary" : "secondary"}
                 size="sm"
                 className="h-10 sm:hidden"
-                onClick={() => setFiltersOpen((v: boolean) => !v)}
-                aria-expanded={filtersOpen}
+                onClick={() => setFiltersOpen((o) => !o)}
               >
                 <SlidersHorizontal aria-hidden className="size-3.5" />
                 Filters
@@ -124,7 +145,7 @@ function Explore() {
 
             <div
               className={cn(
-                "mt-2.5 grid gap-2 sm:grid-cols-2 lg:grid-cols-6",
+                "mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5",
                 !filtersOpen && "hidden sm:grid",
               )}
             >
@@ -138,7 +159,7 @@ function Explore() {
                   value={category}
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => setCategory(e.target.value)}
                 >
-                  <option value="all">All categories</option>
+                  <option value="all">All Categories (10)</option>
                   {CATEGORIES.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.label}
@@ -156,7 +177,7 @@ function Explore() {
                   value={department}
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => setDepartment(e.target.value)}
                 >
-                  <option value="all">All 57 ministries</option>
+                  <option value="all">All 57 Ministries</option>
                   {MINISTRIES_DATA.map((d) => (
                     <option key={d.id} value={d.name}>
                       {d.name} — Minister: {d.minister}
@@ -174,7 +195,7 @@ function Explore() {
                   value={constituency}
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => setConstituency(e.target.value)}
                 >
-                  <option value="all">All 175 constituencies</option>
+                  <option value="all">All 175 Constituencies</option>
                   {CONSTITUENCY_DATA.map((c) => (
                     <option key={c.id} value={c.name}>
                       {c.name} — MLA: {c.mla}
@@ -192,28 +213,10 @@ function Explore() {
                   value={district}
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => setDistrict(e.target.value)}
                 >
-                  <option value="all">All 28 districts</option>
+                  <option value="all">All 28 Districts</option>
                   {DISTRICTS_DATA.map((d) => (
                     <option key={d.id} value={d.name}>
                       {d.name} (HQ: {d.headquarters})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="f-status" className="sr-only">
-                  Status
-                </label>
-                <select
-                  id="f-status"
-                  className="h-9 w-full min-w-0 rounded-md border border-line bg-surface px-2.5 text-xs text-ink"
-                  value={status}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setStatus(e.target.value)}
-                >
-                  <option value="all">Any status</option>
-                  {STATUSES.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.label}
                     </option>
                   ))}
                 </select>
@@ -233,7 +236,7 @@ function Explore() {
                 >
                   <option value="recent">Most recent</option>
                   <option value="nearby">Nearby first</option>
-                  <option value="most-reported">Most reported</option>
+                  <option value="most-reported">Most citizen voices</option>
                 </select>
               </div>
             </div>
@@ -249,8 +252,7 @@ function Explore() {
               {(category !== "all" ||
                 department !== "all" ||
                 constituency !== "all" ||
-                district !== "all" ||
-                status !== "all") && (
+                district !== "all") && (
                 <button onClick={reset} className="ml-3 text-ink underline underline-offset-2">
                   Clear filters
                 </button>
@@ -291,7 +293,7 @@ function Explore() {
               <div className="rounded-xl border border-line bg-surface px-6 py-10 text-center">
                 <p className="text-sm font-medium">No problems match your filters</p>
                 <p className="mt-1 text-xs text-ink-2">
-                  Try clearing a filter, or report the problem yourself.
+                  Try clearing a filter, or share the problem yourself.
                 </p>
               </div>
             ) : view === "grid" ? (

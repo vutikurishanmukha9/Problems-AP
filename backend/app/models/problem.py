@@ -1,13 +1,13 @@
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
 
 class Problem(Base):
-    """Citizen reported problem entity."""
+    """Citizen reported problem entity with high-performance composite indexes."""
     __tablename__ = "problems"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, index=True)
@@ -34,6 +34,14 @@ class Problem(Base):
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
+    # Composite indexes for scalable multi-dimensional querying
+    __table_args__ = (
+        Index("ix_problems_status_category", "status", "category"),
+        Index("ix_problems_constituency_district", "constituency", "district"),
+        Index("ix_problems_department_status", "department", "status"),
+        Index("ix_problems_reported_at", "reported_at"),
+    )
+
     # Relationships
     timeline: Mapped[List["ProblemTimeline"]] = relationship(
         "ProblemTimeline", back_populates="problem", cascade="all, delete-orphan", order_by="ProblemTimeline.timestamp"
@@ -53,6 +61,10 @@ class ProblemTimeline(Base):
     title: Mapped[str] = mapped_column(String(150), nullable=False)
     detail: Mapped[str] = mapped_column(Text, nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("ix_timeline_problem_timestamp", "problem_id", "timestamp"),
+    )
 
     problem: Mapped["Problem"] = relationship("Problem", back_populates="timeline")
 

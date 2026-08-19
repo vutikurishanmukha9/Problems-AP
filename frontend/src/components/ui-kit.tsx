@@ -4,19 +4,20 @@ import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export const buttonStyles = cva(
-  "inline-flex items-center justify-center gap-2 rounded-md text-[0.9375rem] font-medium transition-colors select-none disabled:opacity-50 disabled:pointer-events-none",
+  "inline-flex items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-all select-none disabled:opacity-50 disabled:pointer-events-none cursor-pointer",
   {
     variants: {
       variant: {
-        primary: "bg-accent text-white hover:bg-accent-hover active:bg-accent-hover",
+        primary:
+          "bg-accent text-white shadow-sm hover:bg-accent-hover hover:shadow active:scale-[0.99]",
         secondary:
-          "bg-surface text-ink border border-line-strong hover:bg-surface-2 active:bg-surface-2",
+          "bg-surface text-ink border border-line-strong shadow-xs hover:bg-surface-2 hover:border-ink/40 active:scale-[0.99]",
         quiet: "text-ink-2 hover:text-ink hover:bg-surface-2",
       },
       size: {
-        md: "h-11 px-4",
-        sm: "h-9 px-3 text-sm",
-        lg: "h-12 px-5",
+        md: "h-10 px-4 text-sm",
+        sm: "h-8.5 px-3 text-xs sm:text-sm",
+        lg: "h-11.5 px-5 text-base",
       },
     },
     defaultVariants: { variant: "primary", size: "md" },
@@ -57,23 +58,28 @@ export function Section({
   className?: string;
 }) {
   return (
-    <section className={cn("py-7 sm:py-9", className)}>
+    <section className={cn("py-7 sm:py-10", className)}>
       <div className="container-ap">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 sm:flex sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0 max-w-2xl">
-            <h2 className="text-lg font-semibold sm:text-xl">{title}</h2>
+            <h2 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">{title}</h2>
             {description && (
-              <p className="mt-1 text-sm leading-relaxed text-ink-2">{description}</p>
+              <p className="mt-1.5 text-xs sm:text-sm leading-relaxed text-ink-2">{description}</p>
             )}
           </div>
           {action && <div className="shrink-0">{action}</div>}
         </div>
-        <div className="mt-4">{children}</div>
+        <div className="mt-5">{children}</div>
       </div>
     </section>
   );
 }
 
 export function Card({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("rounded-xl border border-line bg-surface", className)} {...props} />;
+  return (
+    <div
+      className={cn("rounded-xl border border-line bg-surface shadow-xs transition-shadow hover:shadow-sm", className)}
+      {...props}
+    />
+  );
 }
