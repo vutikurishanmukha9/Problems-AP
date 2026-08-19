@@ -1,3 +1,4 @@
+import ssl
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -5,7 +6,7 @@ from sqlalchemy.orm import DeclarativeBase
 from app.core.config import settings
 
 # Engine configuration with Neon serverless connection pooling & pre-ping
-engine_kwargs = {
+engine_kwargs: dict = {
     "echo": settings.DEBUG and settings.ENVIRONMENT == "development",
     "future": True,
 }
@@ -17,6 +18,13 @@ if not settings.DATABASE_URL.startswith("sqlite"):
         "max_overflow": 20,
         "pool_recycle": 300,
     })
+    
+    # asyncpg requires SSL to be passed via connect_args, not query params
+    if settings.DATABASE_USE_SSL:
+        ssl_ctx = ssl.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = ssl.CERT_NONE
+        engine_kwargs["connect_args"] = {"ssl": ssl_ctx}
 
 engine = create_async_engine(settings.DATABASE_URL, **engine_kwargs)
 
