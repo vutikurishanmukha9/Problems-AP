@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: problems-ap-backend
+    runtime: python
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: backend
+    buildCommand: pip install uv && uv sync --frozen
+    startCommand: uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        sync: false # Set in Render dashboard (Paste your Neon connection string)
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false # Set in Render dashboard
+      - key: CLOUDINARY_API_KEY
+        sync: false # Set in Render dashboard
+      - key: CLOUDINARY_API_SECRET
+        sync: false # Set in Render dashboard
+      - key: CORS_ORIGINS
+        value: '["*"]'

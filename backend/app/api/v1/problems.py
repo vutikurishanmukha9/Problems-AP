@@ -3,21 +3,23 @@ import random
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import desc, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.models.problem import Problem, ProblemTimeline
+from app.models.problem import Problem, ProblemEvidence, ProblemTimeline
 from app.models.taxonomy import Constituency, District
 from app.schemas.problem import (
+    EvidenceUploadResponse,
     ProblemCreate,
     ProblemListResponse,
     ProblemOut,
     ProblemSignalResponse,
     ReportSubmissionResponse,
 )
+from app.services.cloudinary_service import upload_image_to_cloudinary
 
 router = APIRouter(prefix="/problems", tags=["Problems"])
 
@@ -26,7 +28,7 @@ CATEGORY_TO_DEPT = {
     "water": "Rural Development & Rural Water Supply",
     "drainage": "Municipal Administration & Urban Development",
     "garbage": "Municipal Administration & Urban Development",
-    "electricity": "Energy",
+    "power": "Energy",
     "street-lights": "Municipal Administration & Urban Development",
     "transport": "Roads & Buildings",
     "health": "Health",
@@ -39,25 +41,20 @@ CATEGORY_TO_DEPT = {
 
 
 async def _enrich_problem(problem: Problem, db: AsyncSession) -> ProblemOut:
-    """Enriches problem with MLA and District HQ lookups."""
-    mla = None
-    district_hq = None
-
+    """Enriches problem with elected MLA name and District Headquarters from taxonomy tables."""
+    mla_name = None
     if problem.constituency:
-        const_res = await db.execute(
-            select(Constituency.mla).where(
-                func.lower(Constituency.name) == func.lower(problem.constituency)
-            )
+        stmt = select(Constituency.mla).where(
+            func.lower(Constituency.name) == problem.constituency.strip().lower()
         )
-        mla = const_res.scalars().first()
+        mla_name = (await db.execute(stmt)).scalar()
 
+    dist_hq = None
     if problem.district:
-        dist_res = await db.execute(
-            select(District.headquarters).where(
-                func.lower(District.name) == func.lower(problem.district)
-            )
+        stmt = select(District.headquarters).where(
+            func.lower(District.name) == problem.district.strip().lower()
         )
-        district_hq = dist_res.scalars().first()
+        dist_hq = (await db.execute(stmt)).scalar()
 
     return ProblemOut(
         id=problem.id,
@@ -66,9 +63,9 @@ async def _enrich_problem(problem: Problem, db: AsyncSession) -> ProblemOut:
         category=problem.category,
         department=problem.department,
         constituency=problem.constituency,
-        mla=mla,
+        mla=mla_name,
         district=problem.district,
-        district_hq=district_hq,
+        district_hq=dist_hq,
         area=problem.area,
         latitude=problem.latitude,
         longitude=problem.longitude,
@@ -159,7 +156,7 @@ async def list_problems(
     result = await db.execute(query)
     problems = result.scalars().all()
 
-    enriched_items = [await _enrich_problem(p, db) for p in problems]
+    items = [await _enrich_problem(p, db) for p in problems]
     total_pages = math.ceil(total_count / page_size) if total_count > 0 else 1
 
     return ProblemListResponse(
@@ -167,13 +164,45 @@ async def list_problems(
         page=page,
         page_size=page_size,
         total_pages=total_pages,
-        items=enriched_items,
+        items=items,
     )
 
 
+@router.post("/upload-evidence", response_model=EvidenceUploadResponse)
+async def upload_evidence(
+    file: UploadFile = File(...),
+):
+    """Uploads citizen evidence photo directly to Cloudinary and returns CDN URL."""
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only image files (JPG, PNG, WebP) are accepted for evidence.",
+        )
+
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:  # 10MB limit
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Evidence photo must be smaller than 10MB.",
+        )
+
+    try:
+        image_url = upload_image_to_cloudinary(content, file.filename or "evidence.jpg")
+        return EvidenceUploadResponse(
+            success=True,
+            image_url=image_url,
+            message="Evidence photo uploaded successfully.",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload photo to storage: {str(e)}",
+        )
+
+
 @router.get("/{problem_id}", response_model=ProblemOut)
-async def get_problem_by_id(problem_id: str, db: AsyncSession = Depends(get_db)):
-    """Retrieve single problem report by ID."""
+async def get_problem(problem_id: str, db: AsyncSession = Depends(get_db)):
+    """Retrieve detailed problem view with complete timeline and evidence."""
     query = (
         select(Problem)
         .options(
@@ -239,6 +268,19 @@ async def report_problem(payload: ProblemCreate, db: AsyncSession = Depends(get_
         timestamp=now,
     )
     db.add(timeline_entry)
+
+    # Attach any evidence photos
+    if payload.evidence:
+        for photo_url in payload.evidence:
+            if photo_url and photo_url.strip():
+                db.add(
+                    ProblemEvidence(
+                        problem_id=problem.id,
+                        image_url=photo_url.strip(),
+                        created_at=now,
+                    )
+                )
+
     await db.commit()
 
     return ReportSubmissionResponse(

@@ -50,7 +50,7 @@ function ReportPage() {
   const [district, setDistrict] = useState("Visakhapatnam");
   const [manualArea, setManualArea] = useState("");
   const [loc, setLoc] = useState<LocState>({ kind: "idle" });
-  const [photos, setPhotos] = useState<{ url: string; name: string }[]>([]);
+  const [photos, setPhotos] = useState<{ url: string; name: string; file?: File }[]>([]);
   const [submitted, setSubmitted] = useState<{ ref: string; token?: string; at: string } | null>(
     null,
   );
@@ -87,8 +87,8 @@ function ReportPage() {
     if (!files) return;
     const next = Array.from(files)
       .slice(0, 4 - photos.length)
-      .map((f) => ({ url: URL.createObjectURL(f), name: f.name }));
-    setPhotos((p: { url: string; name: string }[]) => [...p, ...next]);
+      .map((f) => ({ url: URL.createObjectURL(f), name: f.name, file: f }));
+    setPhotos((p) => [...p, ...next]);
   };
 
   const canContinue = () => {
@@ -130,6 +130,21 @@ function ReportPage() {
       const titleVal =
         description.trim().slice(0, 75).trim() + (description.length > 75 ? "…" : "");
 
+      // Upload any attached photos to Cloudinary / storage
+      const uploadedEvidenceUrls: string[] = [];
+      for (const p of photos) {
+        if (p.file) {
+          try {
+            const uploadedUrl = await apiClient.uploadEvidence(p.file);
+            if (uploadedUrl) {
+              uploadedEvidenceUrls.push(uploadedUrl);
+            }
+          } catch {
+            // Graceful fallback
+          }
+        }
+      }
+
       const result = await apiClient.submitProblem({
         title: titleVal,
         description: description.trim(),
@@ -139,6 +154,7 @@ function ReportPage() {
         area: areaVal,
         latitude: loc.kind === "ok" ? loc.lat : undefined,
         longitude: loc.kind === "ok" ? loc.lng : undefined,
+        evidence: uploadedEvidenceUrls.length > 0 ? uploadedEvidenceUrls : undefined,
       });
 
       setSubmitted({

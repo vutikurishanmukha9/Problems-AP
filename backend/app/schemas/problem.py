@@ -30,6 +30,7 @@ class ProblemCreate(BaseModel):
     area: str = Field(..., min_length=2, max_length=200, description="Specific street, village, or landmark")
     latitude: Optional[float] = Field(None, ge=12.0, le=20.0, description="Optional AP GPS latitude")
     longitude: Optional[float] = Field(None, ge=76.0, le=85.0, description="Optional AP GPS longitude")
+    evidence: Optional[List[str]] = Field(default_factory=list, description="List of Cloudinary evidence photo URLs")
 
 
 class ProblemOut(BaseModel):
@@ -75,4 +76,10 @@ class ProblemSignalResponse(BaseModel):
     success: bool
     problem_id: str
     upvotes_count: int
+    message: str
+
+
+class EvidenceUploadResponse(BaseModel):
+    success: bool
+    image_url: str
     message: str

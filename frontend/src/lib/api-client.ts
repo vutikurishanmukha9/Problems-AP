@@ -39,6 +39,7 @@ export interface ProblemCreatePayload {
   area: string;
   latitude?: number | undefined;
   longitude?: number | undefined;
+  evidence?: string[] | undefined;
 }
 
 export interface ProblemSubmitResult {
@@ -271,6 +272,33 @@ export const apiClient = {
       ministries_mapped: 57,
       districts_active: 28,
     };
+  },
+
+  /** Upload evidence photo to Cloudinary storage */
+  async uploadEvidence(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 12000);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/problems/upload-evidence`, {
+        method: "POST",
+        body: formData,
+        signal: controller.signal,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        return data.image_url || "";
+      }
+    } catch {
+      // Local fallback
+    } finally {
+      clearTimeout(id);
+    }
+    return "";
   },
 
   /** Submit anonymous problem report */

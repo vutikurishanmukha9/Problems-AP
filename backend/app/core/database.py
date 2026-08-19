@@ -4,12 +4,21 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import settings
 
-# Engine configuration
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=settings.DEBUG and settings.ENVIRONMENT == "development",
-    future=True,
-)
+# Engine configuration with Neon serverless connection pooling & pre-ping
+engine_kwargs = {
+    "echo": settings.DEBUG and settings.ENVIRONMENT == "development",
+    "future": True,
+}
+
+if not settings.DATABASE_URL.startswith("sqlite"):
+    engine_kwargs.update({
+        "pool_pre_ping": True,
+        "pool_size": 10,
+        "max_overflow": 20,
+        "pool_recycle": 300,
+    })
+
+engine = create_async_engine(settings.DATABASE_URL, **engine_kwargs)
 
 # Async session factory
 AsyncSessionLocal = async_sessionmaker(
