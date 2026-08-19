@@ -38,6 +38,13 @@ __pycache__/
 backend/.pytest_cache/
 .ruff_cache/
 
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env
+
 # Agent configurations & Skills
 .agents/
 AGENTS.md

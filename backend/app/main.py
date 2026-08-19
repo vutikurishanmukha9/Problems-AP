@@ -11,6 +11,7 @@ from app.api.v1 import api_router
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, Base, engine
 from app.core.seed import seed_database
+from app.services.cloudinary_service import init_cloudinary
 
 # Configure structured logging
 logging.basicConfig(
@@ -19,8 +20,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("problems_ap.api")
 
-# Max request body size (5 MB)
-MAX_REQUEST_BODY_BYTES = 5 * 1024 * 1024
+# Max request body size (15 MB for image uploads)
+MAX_REQUEST_BODY_BYTES = 15 * 1024 * 1024
 
 
 @asynccontextmanager
@@ -33,6 +34,9 @@ async def lifespan(app: FastAPI):
     async with AsyncSessionLocal() as session:
         await seed_database(session)
     logger.info("Database initialized successfully.")
+
+    # Initialize Cloudinary service if credentials are present
+    init_cloudinary()
 
     yield
 
