@@ -261,7 +261,13 @@ export const apiClient = {
     try {
       const res = await fetchWithTimeout(url, { method: "GET" }, 4000);
       if (res.ok) {
-        return await res.json();
+        const data = await res.json();
+        return {
+          total_problems: data.total_problems ?? 0,
+          constituencies_covered: data.constituencies_covered || 175,
+          ministries_mapped: data.ministries_mapped || 57,
+          districts_active: data.districts_active || 28,
+        };
       }
     } catch {
       // Fallback below

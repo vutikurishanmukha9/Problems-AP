@@ -33,6 +33,9 @@ class StateOverviewStats(BaseModel):
     action_initiated_problems: int
     resolved_problems: int
     resolution_rate_percent: float
+    constituencies_covered: int = 175
+    ministries_mapped: int = 57
+    districts_active: int = 28
     total_constituencies_affected: int
     total_departments_active: int
     status_breakdown: Dict[str, int]
