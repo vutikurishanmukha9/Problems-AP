@@ -57,9 +57,12 @@ function ProblemNotFound() {
 
 function ProblemDetail() {
   const { problem: p } = Route.useLoaderData();
-  const related = PROBLEMS.filter(
-    (x) => x.id !== p.id && (x.category === p.category || x.district === p.district),
-  ).slice(0, 4);
+  const others = PROBLEMS.filter((x) => x.id !== p.id);
+  const related = [
+    ...others.filter((x) => x.category === p.category || x.district === p.district),
+    ...others.filter((x) => x.category !== p.category && x.district !== p.district),
+  ].slice(0, 4);
+
 
   return (
     <>
