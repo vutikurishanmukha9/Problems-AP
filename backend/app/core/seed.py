@@ -1,10 +1,7 @@
-import uuid
-from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.taxonomy import Constituency, Ministry, District
-from app.models.problem import Problem, ProblemTimeline
 
 CONSTITUENCIES_SEED = [
     (1, "Ichchapuram", "Ashok Bendalam Garu"),
@@ -275,107 +272,8 @@ DISTRICTS_SEED = [
     (28, "Polavaram", "Polavaram"),
 ]
 
-INITIAL_PROBLEMS = [
-    {
-        "id": "AP-2026-0842",
-        "title": "Severe craters and waterlogging on Bandar Road junction",
-        "description": "Heavy rainfall caused extensive road damage and continuous water stagnation creating severe traffic bottlenecks and 2-wheeler accidents near the junction.",
-        "category": "roads",
-        "department": "Roads & Buildings",
-        "constituency": "Vijayawada East",
-        "district": "NTR",
-        "area": "Bandar Road Junction, Benz Circle",
-        "latitude": 16.5062,
-        "longitude": 80.6480,
-        "status": "action-initiated",
-        "upvotes_count": 48,
-        "days_ago": 3,
-        "timeline": [
-            ("reported", "Problem Reported", "Citizen logged complaint with GPS location."),
-            ("under-review", "Ward Inspection", "Local R&B engineer inspected road section."),
-            ("action-initiated", "Repair Tender Allocated", "Patchwork work-order issued to municipal contractor."),
-        ]
-    },
-    {
-        "id": "AP-2026-0791",
-        "title": "Overhead transformer spark hazard and low voltage in Danavaipeta",
-        "description": "Frequent sparking on the distribution pole and continuous low voltage causing refrigerator breakdowns across 40+ households.",
-        "category": "electricity",
-        "department": "Energy",
-        "constituency": "Rajahmundry City",
-        "district": "East Godavari",
-        "area": "Danavaipeta 3rd Street",
-        "latitude": 17.0005,
-        "longitude": 81.8040,
-        "status": "forwarded",
-        "upvotes_count": 32,
-        "days_ago": 5,
-        "timeline": [
-            ("reported", "Reported", "Anonymous citizen grievance recorded."),
-            ("forwarded", "Transferred to EPDCL", "Ticket assigned to Assistant Engineer, Rajahmundry Town Division."),
-        ]
-    },
-    {
-        "id": "AP-2026-0655",
-        "title": "Contaminated drinking water supply with sewage odor in Gajuwaka",
-        "description": "Municipal tap water has a dark brownish tint and strong sewage smell since Tuesday. Residents are forced to purchase private water cans.",
-        "category": "water",
-        "department": "Rural Development & Rural Water Supply",
-        "constituency": "Gajuwaka",
-        "district": "Visakhapatnam",
-        "area": "Old Gajuwaka Main Market Area",
-        "latitude": 17.6904,
-        "longitude": 83.2095,
-        "status": "under-review",
-        "upvotes_count": 89,
-        "days_ago": 2,
-        "timeline": [
-            ("reported", "Problem Reported", "Report logged with photos."),
-            ("under-review", "Water Sample Collected", "GVMC health and water quality team collected samples for lab testing."),
-        ]
-    },
-    {
-        "id": "AP-2026-0512",
-        "title": "Overflowing open storm drain causing dengue threat in Arundelpet",
-        "description": "The open drain has been blocked by plastic waste and silt for 3 weeks, overflowing onto the footpath and breeding mosquitoes.",
-        "category": "drainage",
-        "department": "Municipal Administration & Urban Development",
-        "constituency": "Guntur West",
-        "district": "Guntur",
-        "area": "Arundelpet 6th Line",
-        "latitude": 16.3067,
-        "longitude": 80.4365,
-        "status": "resolved",
-        "upvotes_count": 64,
-        "days_ago": 9,
-        "timeline": [
-            ("reported", "Problem Reported", "Citizen shared issue."),
-            ("under-review", "Sanitation Team Dispatched", "Ward health inspector inspected open drain blockages."),
-            ("resolved", "Desilting Completed", "Desilting and chemical larvicide spraying completed."),
-        ]
-    },
-    {
-        "id": "AP-2026-0320",
-        "title": "Continuous non-functional streetlights on Pedagantyada main stretch",
-        "description": "More than 15 consecutive LED streetlight fixtures are unlit since 10 days, causing safety concerns for pedestrians and night shift workers.",
-        "category": "street-lights",
-        "department": "Municipal Administration & Urban Development",
-        "constituency": "Gajuwaka",
-        "district": "Visakhapatnam",
-        "area": "Pedagantyada Main Road",
-        "latitude": 17.6710,
-        "longitude": 83.1890,
-        "status": "reported",
-        "upvotes_count": 27,
-        "days_ago": 1,
-        "timeline": [
-            ("reported", "Reported", "Anonymous grievance filed."),
-        ]
-    }
-]
-
 async def seed_database(session: AsyncSession) -> None:
-    """Populates reference taxonomy tables and initial citizen problems if empty or updates names."""
+    """Populates reference taxonomy tables (Constituencies, Ministries, Districts) without any mock problems."""
     # 1. Seed / Update Constituencies
     result = await session.execute(select(Constituency))
     existing_const = result.scalars().all()
@@ -413,44 +311,4 @@ async def seed_database(session: AsyncSession) -> None:
             session.add(District(id=did, name=name, headquarters=hq))
         await session.flush()
 
-    # 4. Seed Problems
-    result = await session.execute(select(Problem).limit(1))
-    if not result.scalars().first():
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-        for item in INITIAL_PROBLEMS:
-            reported_time = now - timedelta(days=item["days_ago"])
-            prob = Problem(
-                id=item["id"],
-                title=item["title"],
-                description=item["description"],
-                category=item["category"],
-                department=item["department"],
-                constituency=item["constituency"],
-                district=item["district"],
-                area=item["area"],
-                latitude=item.get("latitude"),
-                longitude=item.get("longitude"),
-                status=item["status"],
-                confirmation_token=str(uuid.uuid4()),
-                upvotes_count=item["upvotes_count"],
-                reported_at=reported_time,
-                updated_at=now,
-            )
-            session.add(prob)
-            await session.flush()
-
-            for step_idx, (st, title, detail) in enumerate(item["timeline"]):
-                t_time = reported_time + timedelta(hours=step_idx * 12)
-                session.add(
-                    ProblemTimeline(
-                        problem_id=prob.id,
-                        status=st,
-                        title=title,
-                        detail=detail,
-                        timestamp=t_time,
-                    )
-                )
-
-        await session.commit()
-    else:
-        await session.commit()
+    await session.commit()

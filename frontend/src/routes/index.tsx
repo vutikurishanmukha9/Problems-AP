@@ -15,9 +15,9 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ProblemCard } from "@/components/problem-card";
 import { ButtonLink, Section } from "@/components/ui-kit";
-import { PROBLEMS, SNAPSHOT, departmentStats, districtStats } from "@/data/problems";
+import { type Problem, departmentStats, districtStats } from "@/data/problems";
 import { CATEGORIES, MINISTRIES_DATA, DISTRICTS_DATA } from "@/data/taxonomy";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, type OverviewStatistics } from "@/lib/api-client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -50,6 +50,31 @@ function Home() {
 }
 
 function Hero() {
+  const [stats, setStats] = useState<OverviewStatistics>({
+    total_problems: 0,
+    constituencies_covered: 175,
+    ministries_mapped: 57,
+    districts_active: 28,
+  });
+
+  useEffect(() => {
+    let active = true;
+    async function loadStats() {
+      try {
+        const live = await apiClient.getOverviewStatistics();
+        if (active && live) {
+          setStats(live);
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    loadStats();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <section className="border-b border-line bg-canvas">
       <div className="container-ap py-7 sm:py-12 lg:py-16">
@@ -122,7 +147,7 @@ function Hero() {
                   Problems Shared
                 </p>
                 <p className="mt-1 text-xl sm:text-2xl font-extrabold tabular-nums tracking-tight text-accent">
-                  {SNAPSHOT.totalShared.toLocaleString("en-IN")}
+                  {stats.total_problems.toLocaleString("en-IN")}
                 </p>
               </div>
               <div className="rounded-xl border border-line bg-surface-2/60 p-3 sm:p-3.5">
@@ -130,7 +155,7 @@ function Hero() {
                   Constituencies
                 </p>
                 <p className="mt-1 text-xl sm:text-2xl font-extrabold tabular-nums tracking-tight text-ink">
-                  {SNAPSHOT.constituenciesCovered}
+                  {stats.constituencies_covered}
                 </p>
               </div>
               <div className="rounded-xl border border-line bg-surface-2/60 p-3 sm:p-3.5">
@@ -138,7 +163,7 @@ function Hero() {
                   Ministries Mapped
                 </p>
                 <p className="mt-1 text-xl sm:text-2xl font-extrabold tabular-nums tracking-tight text-ink">
-                  {SNAPSHOT.ministriesMapped}
+                  {stats.ministries_mapped}
                 </p>
               </div>
               <div className="rounded-xl border border-line bg-surface-2/60 p-3 sm:p-3.5">
@@ -146,7 +171,7 @@ function Hero() {
                   Districts Active
                 </p>
                 <p className="mt-1 text-xl sm:text-2xl font-extrabold tabular-nums tracking-tight text-ink">
-                  {SNAPSHOT.districtsActive}
+                  {stats.districts_active}
                 </p>
               </div>
             </div>
@@ -416,7 +441,29 @@ function CategoriesSection() {
 }
 
 function RecentReports() {
-  const recent = PROBLEMS.slice(0, 6);
+  const [recent, setRecent] = useState<Problem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    async function loadRecent() {
+      try {
+        const res = await apiClient.getProblems({ pageSize: 6, sort: "recent" });
+        if (active && res?.items) {
+          setRecent(res.items);
+        }
+      } catch {
+        // Fallback
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    loadRecent();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <Section
       title="Recently Reported Problems"
@@ -427,11 +474,29 @@ function RecentReports() {
         </ButtonLink>
       }
     >
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {recent.map((p) => (
-          <ProblemCard key={p.id} problem={p} />
-        ))}
-      </div>
+      {loading ? (
+        <div className="py-8 text-center text-xs text-ink-3 font-medium">Loading recent citizen reports...</div>
+      ) : recent.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-line bg-surface p-8 text-center sm:p-12">
+          <AlertCircle className="mx-auto size-9 text-ink-3" />
+          <h3 className="mt-3 text-base font-bold text-ink">No citizen problems reported yet</h3>
+          <p className="mt-1 text-xs sm:text-sm text-ink-2 max-w-md mx-auto">
+            Be the first citizen to voice an issue in your locality or explore the statewide directory.
+          </p>
+          <div className="mt-5">
+            <ButtonLink to="/report" size="md" className="font-bold">
+              <PlusCircle className="mr-2 size-4" />
+              Report a Problem
+            </ButtonLink>
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {recent.map((p) => (
+            <ProblemCard key={p.id} problem={p} />
+          ))}
+        </div>
+      )}
     </Section>
   );
 }

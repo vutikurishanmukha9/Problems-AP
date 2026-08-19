@@ -56,6 +56,13 @@ export interface ProblemSignalResult {
   message: string;
 }
 
+export interface OverviewStatistics {
+  total_problems: number;
+  constituencies_covered: number;
+  ministries_mapped: number;
+  districts_active: number;
+}
+
 function parseCategory(raw: string): Problem["category"] {
   switch (raw) {
     case "drinking-water":
@@ -117,6 +124,50 @@ async function fetchWithTimeout(
   }
 }
 
+function mapBackendProblem(p: {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  department: string;
+  constituency?: string;
+  district: string;
+  area: string;
+  latitude?: number;
+  longitude?: number;
+  status: string;
+  upvotes_count: number;
+  reported_at: string;
+  timeline?: { status: string; title: string; detail: string; timestamp: string }[];
+  evidence?: { image_url: string }[];
+}): Problem {
+  return {
+    id: p.id,
+    title: p.title,
+    description: p.description,
+    category: parseCategory(p.category),
+    department: p.department,
+    constituency: p.constituency ?? "General",
+    district: p.district,
+    area: p.area,
+    lat: p.latitude || 16.5,
+    lng: p.longitude || 80.6,
+    reportedAt: p.reported_at,
+    status: parseStatus(p.status),
+    reports: p.upvotes_count || 1,
+    confirmations: Math.round((p.upvotes_count || 1) * 0.7),
+    recurring: false,
+    distanceKm: 2.5,
+    evidence: (p.evidence || []).map((e) => e.image_url),
+    timeline: (p.timeline || []).map((t) => ({
+      kind: "reported",
+      label: t.title,
+      detail: t.detail,
+      at: t.timestamp,
+    })),
+  };
+}
+
 /** Core API client service */
 export const apiClient = {
   /** Fetch paginated list of problems with filtering */
@@ -140,44 +191,7 @@ export const apiClient = {
       const res = await fetchWithTimeout(url, { method: "GET" }, 4000);
       if (res.ok) {
         const data = await res.json();
-        // Map backend schema to client Problem shape
-        const items: Problem[] = data.items.map(
-          (p: {
-            id: string;
-            title: string;
-            description: string;
-            category: string;
-            department: string;
-            constituency?: string;
-            district: string;
-            area: string;
-            latitude?: number;
-            longitude?: number;
-            status: string;
-            upvotes_count: number;
-            reported_at: string;
-            timeline?: { status: string; title: string; detail: string; timestamp: string }[];
-            evidence?: { image_url: string }[];
-          }) => ({
-            id: p.id,
-            title: p.title,
-            description: p.description,
-            category: parseCategory(p.category),
-            department: p.department,
-            constituency: p.constituency ?? "General",
-            district: p.district,
-            area: p.area,
-            lat: p.latitude || 16.5,
-            lng: p.longitude || 80.6,
-            reportedAt: p.reported_at,
-            status: parseStatus(p.status),
-            reports: p.upvotes_count || 1,
-            confirmations: Math.round((p.upvotes_count || 1) * 0.7),
-            recurring: false,
-            distanceKm: 2.5,
-            evidence: (p.evidence || []).map((e) => e.image_url),
-          }),
-        );
+        const items: Problem[] = (data.items || []).map(mapBackendProblem);
 
         return {
           total: data.total,
@@ -188,10 +202,9 @@ export const apiClient = {
         };
       }
     } catch {
-      // Graceful fallback to local seed data
+      // Fallback
     }
 
-    // Fallback in-memory filter
     let list = [...PROBLEMS];
     if (filters.category && filters.category !== "all") {
       list = list.filter((p) => p.category === filters.category);
@@ -226,6 +239,40 @@ export const apiClient = {
     };
   },
 
+  /** Fetch a specific problem by ID */
+  async getProblemById(problemId: string): Promise<Problem | null> {
+    const url = `${API_BASE_URL}/problems/${encodeURIComponent(problemId)}`;
+    try {
+      const res = await fetchWithTimeout(url, { method: "GET" }, 4000);
+      if (res.ok) {
+        const data = await res.json();
+        return mapBackendProblem(data);
+      }
+    } catch {
+      // Fallback
+    }
+    return PROBLEMS.find((p) => p.id.toLowerCase() === problemId.toLowerCase()) ?? null;
+  },
+
+  /** Fetch overview statistics from backend */
+  async getOverviewStatistics(): Promise<OverviewStatistics> {
+    const url = `${API_BASE_URL}/statistics/overview`;
+    try {
+      const res = await fetchWithTimeout(url, { method: "GET" }, 4000);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // Fallback below
+    }
+    return {
+      total_problems: PROBLEMS.length,
+      constituencies_covered: 175,
+      ministries_mapped: 57,
+      districts_active: 28,
+    };
+  },
+
   /** Submit anonymous problem report */
   async submitProblem(payload: ProblemCreatePayload): Promise<ProblemSubmitResult> {
     const url = `${API_BASE_URL}/problems`;
@@ -254,7 +301,6 @@ export const apiClient = {
       // Local fallback generation
     }
 
-    // Resilient local reference generator
     const localId = `AP-2026-${Math.floor(1000 + Math.random() * 9000)}`;
     return {
       success: true,

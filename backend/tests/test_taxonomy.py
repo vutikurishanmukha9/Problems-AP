@@ -11,7 +11,7 @@ async def test_get_all_175_constituencies(client: AsyncClient):
     first = data[0]
     assert first["id"] == 1
     assert first["name"] == "Ichchapuram"
-    assert first["mla"] == "Ashok Bendalam"
+    assert first["mla"] == "Ashok Bendalam Garu"
 
 
 @pytest.mark.asyncio
@@ -23,7 +23,7 @@ async def test_get_all_57_ministries(client: AsyncClient):
     first = data[0]
     assert first["id"] == 1
     assert first["name"] == "General Administration"
-    assert first["minister"] == "N. Chandrababu Naidu"
+    assert first["minister"] == "N. Chandrababu Naidu Garu"
 
 
 @pytest.mark.asyncio

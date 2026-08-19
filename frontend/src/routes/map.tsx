@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ProblemMap } from "@/components/problem-map";
 import { ProblemRow } from "@/components/problem-card";
-import { PROBLEMS } from "@/data/problems";
+import { type Problem } from "@/data/problems";
 import { CATEGORIES } from "@/data/taxonomy";
+import { apiClient } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/map")({
@@ -29,12 +30,31 @@ export const Route = createFileRoute("/map")({
 });
 
 function MapPage() {
+  const [allProblems, setAllProblems] = useState<Problem[]>([]);
   const [category, setCategory] = useState("all");
   const [tab, setTab] = useState<"map" | "list">("map");
 
+  useEffect(() => {
+    let active = true;
+    async function loadProblems() {
+      try {
+        const res = await apiClient.getProblems({ pageSize: 100 });
+        if (active && res?.items) {
+          setAllProblems(res.items);
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    loadProblems();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const problems = useMemo(
-    () => (category === "all" ? PROBLEMS : PROBLEMS.filter((p) => p.category === category)),
-    [category],
+    () => (category === "all" ? allProblems : allProblems.filter((p) => p.category === category)),
+    [allProblems, category],
   );
 
   return (
@@ -91,11 +111,17 @@ function MapPage() {
               <ProblemMap problems={problems} height="min(70vh, 560px)" />
             </div>
             <div className={cn(tab === "map" && "hidden sm:block")}>
-              <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
-                {problems.map((p) => (
-                  <ProblemRow key={p.id} problem={p} showDistance />
-                ))}
-              </div>
+              {problems.length === 0 ? (
+                <div className="rounded-xl border border-line bg-surface p-8 text-center text-xs text-ink-2">
+                  No problems mapped in this category yet.
+                </div>
+              ) : (
+                <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
+                  {problems.map((p) => (
+                    <ProblemRow key={p.id} problem={p} showDistance />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

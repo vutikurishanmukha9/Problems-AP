@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MapPin, Users, Repeat, FileText, ThumbsUp, Check, Clock } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -8,7 +8,6 @@ import { ProblemRow } from "@/components/problem-card";
 import { Button, ButtonLink } from "@/components/ui-kit";
 import {
   getProblem,
-  PROBLEMS,
   formatDateTime,
   timeAgo,
   type Problem,
@@ -19,7 +18,13 @@ import { getMLAForConstituency } from "@/data/constituencies";
 import { apiClient } from "@/lib/api-client";
 
 export const Route = createFileRoute("/problems/$id")({
-  loader: ({ params }: { params: { id: string } }) => {
+  loader: async ({ params }: { params: { id: string } }) => {
+    try {
+      const live = await apiClient.getProblemById(params.id);
+      if (live) return { problem: live };
+    } catch {
+      // Fallback
+    }
     const problem = getProblem(params.id);
     if (!problem) throw notFound();
     return { problem };
@@ -72,12 +77,30 @@ function ProblemDetail() {
   const [reportsCount, setReportsCount] = useState<number>(p.reports);
   const [signaled, setSignaled] = useState(false);
   const [signaling, setSignaling] = useState(false);
+  const [related, setRelated] = useState<Problem[]>([]);
 
-  const others = PROBLEMS.filter((x) => x.id !== p.id);
-  const related = [
-    ...others.filter((x) => x.category === p.category || x.district === p.district),
-    ...others.filter((x) => x.category !== p.category && x.district !== p.district),
-  ].slice(0, 4);
+  useEffect(() => {
+    let active = true;
+    async function loadRelated() {
+      try {
+        const res = await apiClient.getProblems({ pageSize: 10 });
+        if (active && res?.items) {
+          const others = res.items.filter((x) => x.id !== p.id);
+          const matched = [
+            ...others.filter((x) => x.category === p.category || x.district === p.district),
+            ...others.filter((x) => x.category !== p.category && x.district !== p.district),
+          ].slice(0, 4);
+          setRelated(matched);
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    loadRelated();
+    return () => {
+      active = false;
+    };
+  }, [p.id, p.category, p.district]);
 
   const handleSignal = async () => {
     if (signaled || signaling) return;
@@ -284,16 +307,18 @@ function ProblemDetail() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-line bg-surface">
-              <h2 className="px-4 pt-3.5 text-xs font-semibold uppercase tracking-wider text-ink-2">
-                Related problems
-              </h2>
-              <div className="mt-1 divide-y divide-line">
-                {related.map((r: Problem) => (
-                  <ProblemRow key={r.id} problem={r} />
-                ))}
+            {related.length > 0 && (
+              <div className="rounded-xl border border-line bg-surface">
+                <h2 className="px-4 pt-3.5 text-xs font-semibold uppercase tracking-wider text-ink-2">
+                  Related problems
+                </h2>
+                <div className="mt-1 divide-y divide-line">
+                  {related.map((r: Problem) => (
+                    <ProblemRow key={r.id} problem={r} />
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             <p className="text-xs text-ink-3">Last activity {timeAgo(p.reportedAt)}.</p>
           </aside>
