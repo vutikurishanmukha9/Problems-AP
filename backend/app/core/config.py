@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     
     # Allowed CORS Origins for frontend integration (Vercel, localhost, etc.)
     CORS_ORIGINS: List[str] = [
+        "https://ap-problems.vercel.app",
         "http://localhost:3000",
         "http://localhost:5173",
         "http://localhost:8080",
