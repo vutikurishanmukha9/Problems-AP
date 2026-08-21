@@ -1,0 +1,18 @@
+# Cloudflare Worker Configuration for Problems@AP Backend
+name = "problems-ap-backend"
+main = "entrypoint_cloudflare.py"
+compatibility_date = "2026-08-21"
+compatibility_flags = ["python_workers"]
+
+[vars]
+PROJECT_NAME = "Problems@AP API"
+VERSION = "1.0.0"
+ENVIRONMENT = "production"
+DEBUG = "false"
+
+# Production Secrets: Set these securely via Cloudflare Dashboard or Wrangler CLI:
+#   npx wrangler secret put DATABASE_URL
+#   npx wrangler secret put CLOUDINARY_CLOUD_NAME
+#   npx wrangler secret put CLOUDINARY_API_KEY
+#   npx wrangler secret put CLOUDINARY_API_SECRET
+#   npx wrangler secret put PLATFORM_SECRET_KEY

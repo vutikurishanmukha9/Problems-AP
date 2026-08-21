@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
+    "build:cloudflare": "cross-env NITRO_PRESET=cloudflare-pages vite build",
+    "build:vercel": "cross-env NITRO_PRESET=vercel vite build",
     "build:dev": "vite build --mode development",
+    "deploy:cloudflare": "wrangler pages deploy .output/public",
     "preview": "vite preview",
     "lint": "eslint . && npm run lint:oxlint",
     "lint:oxlint": "node --experimental-strip-types ./node_modules/oxlint/bin/oxlint",
@@ -77,6 +80,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.2.0",
+    "cross-env": "^10.1.0",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.6",
@@ -88,6 +92,7 @@
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^8.2.0"
+    "vite": "^8.2.0",
+    "wrangler": "^4.125.0"
   }
 }

@@ -6,6 +6,16 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { nitro } from "nitro/vite";
 import path from "node:path";
 
+const getNitroPreset = () => {
+  if (process.env.NITRO_PRESET) {
+    return process.env.NITRO_PRESET;
+  }
+  if (process.env.CF_PAGES || process.env.CLOUDFLARE) {
+    return "cloudflare-pages";
+  }
+  return "vercel";
+};
+
 export default defineConfig(({ command }) => ({
   resolve: {
     alias: {
@@ -29,7 +39,7 @@ export default defineConfig(({ command }) => ({
     tanstackStart({
       server: { entry: "server" },
     }),
-    command === "build" && nitro({ preset: "vercel" }),
+    command === "build" && nitro({ preset: getNitroPreset() }),
     react(),
   ].filter(Boolean),
 }));
