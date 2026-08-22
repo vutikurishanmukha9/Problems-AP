@@ -161,7 +161,7 @@ function Explore() {
                 </label>
                 <select
                   id="f-cat"
-                  className="h-9 w-full min-w-0 rounded-md border border-line bg-surface px-2.5 text-xs text-ink"
+                  className="select-ap h-9.5 w-full min-w-0 px-3 text-xs text-ink shadow-2xs font-medium"
                   value={category}
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => setCategory(e.target.value)}
                 >
@@ -179,7 +179,7 @@ function Explore() {
                 </label>
                 <select
                   id="f-dep"
-                  className="h-9 w-full min-w-0 rounded-md border border-line bg-surface px-2.5 text-xs text-ink"
+                  className="select-ap h-9.5 w-full min-w-0 px-3 text-xs text-ink shadow-2xs font-medium"
                   value={department}
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => setDepartment(e.target.value)}
                 >
@@ -197,7 +197,7 @@ function Explore() {
                 </label>
                 <select
                   id="f-const"
-                  className="h-9 w-full min-w-0 rounded-md border border-line bg-surface px-2.5 text-xs text-ink"
+                  className="select-ap h-9.5 w-full min-w-0 px-3 text-xs text-ink shadow-2xs font-medium"
                   value={constituency}
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => setConstituency(e.target.value)}
                 >
@@ -215,7 +215,7 @@ function Explore() {
                 </label>
                 <select
                   id="f-loc"
-                  className="h-9 w-full min-w-0 rounded-md border border-line bg-surface px-2.5 text-xs text-ink"
+                  className="select-ap h-9.5 w-full min-w-0 px-3 text-xs text-ink shadow-2xs font-medium"
                   value={district}
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => setDistrict(e.target.value)}
                 >
@@ -233,7 +233,7 @@ function Explore() {
                 </label>
                 <select
                   id="f-sort"
-                  className="h-9 w-full min-w-0 rounded-md border border-line bg-surface px-2.5 text-xs text-ink"
+                  className="select-ap h-9.5 w-full min-w-0 px-3 text-xs text-ink shadow-2xs font-medium"
                   value={sort}
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => {
                     // SAFETY: The select dropdown only offers options defined in the Sort union

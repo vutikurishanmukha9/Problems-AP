@@ -278,7 +278,7 @@ function StatisticsPage() {
                     // SAFETY: The select dropdown only offers options defined in the SortMode union
                     setSort(e.target.value as SortMode);
                   }}
-                  className="h-9.5 rounded-lg border border-line bg-surface px-3 text-xs font-semibold text-ink shadow-xs"
+                  className="select-ap h-9.5 px-3 text-xs font-semibold text-ink shadow-xs"
                 >
                   <option value="most-reported">Most Problems Shared</option>
                   <option value="name">Alphabetical (A–Z)</option>

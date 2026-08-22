@@ -386,7 +386,7 @@ function ReportPage() {
                     id="district-select"
                     value={district}
                     onChange={(e: ChangeEvent<HTMLSelectElement>) => setDistrict(e.target.value)}
-                    className="mt-1.5 h-10 w-full rounded-lg border border-line bg-surface px-3 text-sm text-ink"
+                    className="select-ap mt-1.5 h-11 w-full px-3.5 text-sm text-ink shadow-2xs font-medium"
                   >
                     {DISTRICTS_DATA.map((d) => (
                       <option key={d.id} value={d.name}>
@@ -410,7 +410,7 @@ function ReportPage() {
                     onChange={(e: ChangeEvent<HTMLSelectElement>) =>
                       setConstituency(e.target.value)
                     }
-                    className="mt-1.5 h-10 w-full rounded-lg border border-line bg-surface px-3 text-sm text-ink"
+                    className="select-ap mt-1.5 h-11 w-full px-3.5 text-sm text-ink shadow-2xs font-medium"
                   >
                     <option value="">Select Assembly Constituency (175 AP Constituencies)</option>
                     {CONSTITUENCY_DATA.map((c) => (
