@@ -178,7 +178,21 @@
   color: var(--ink);
   font-weight: 500;
   cursor: pointer;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
   transition: all 0.15s ease;
+}
+
+/* Mobile Touch & Accessibility Enhancement */
+@media (max-width: 640px) {
+  .select-ap,
+  input[type="text"],
+  input[type="search"] {
+    font-size: 16px !important; /* Prevents unwanted iOS auto-zoom on form focus */
+    min-height: 42px;
+  }
 }
 
 .select-ap:hover {
