@@ -9,10 +9,16 @@ export function SiteHeader() {
   return (
     <>
       {/* Citizen Platform Notice Bar */}
-      <div className="border-b border-line bg-amber-500/10 px-3 py-1 text-center text-[0.6875rem] font-medium text-amber-950 sm:px-4 sm:text-xs dark:text-amber-200">
-        📢 <span className="font-semibold">Citizen-Built Platform:</span> Problems@AP is an
-        independent, unofficial platform created by citizens to report and view public problems. Not
-        affiliated with the government.
+      <div className="border-b border-amber-300 bg-amber-100 px-3 py-1.5 text-center text-xs font-medium text-stone-900 shadow-2xs sm:px-4 dark:border-amber-900/50 dark:bg-amber-950/60 dark:text-amber-100">
+        <span className="inline-flex flex-wrap items-center justify-center gap-1.5">
+          <span className="rounded bg-amber-700 px-1.5 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-white shadow-2xs">
+            Notice
+          </span>
+          <span className="font-bold text-stone-950 dark:text-amber-50">Citizen-Built Platform:</span>
+          <span className="text-stone-800 dark:text-amber-100 font-medium">
+            Problems@AP is an independent, unofficial platform created by citizens to report and view public problems. Not affiliated with the government.
+          </span>
+        </span>
       </div>
 
       <header className="sticky top-0 z-40 border-b border-line bg-canvas/90 backdrop-blur-md">

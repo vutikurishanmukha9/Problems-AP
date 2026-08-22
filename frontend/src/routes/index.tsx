@@ -76,9 +76,11 @@ function Hero() {
         <div className="grid gap-6 sm:gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-center">
           {/* Left Column: Comprehensive Civic Headline & Actions */}
           <div className="min-w-0">
-            <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-amber-600/30 bg-amber-500/10 px-3 py-1 text-[0.6875rem] sm:text-xs font-bold text-amber-950 dark:text-amber-200">
-              <AlertCircle className="size-3.5 shrink-0 text-amber-700" />
-              <span className="truncate sm:whitespace-normal">Independent Citizen Initiative · Unofficial Platform</span>
+            <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-amber-300 bg-amber-100 px-3.5 py-1 text-[0.7rem] sm:text-xs font-bold text-stone-900 shadow-2xs dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-100">
+              <AlertCircle className="size-3.5 shrink-0 text-amber-800 dark:text-amber-400" />
+              <span className="truncate sm:whitespace-normal font-bold text-stone-900 dark:text-amber-50">
+                Independent Citizen Initiative · Unofficial Platform
+              </span>
             </div>
 
             <h1 className="mt-4 w-full text-[1.65rem] font-extrabold leading-[1.16] tracking-tight text-ink text-left sm:text-3xl md:text-4xl lg:text-[2.75rem]">
