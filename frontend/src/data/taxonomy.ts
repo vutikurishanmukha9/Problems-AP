@@ -201,6 +201,8 @@ export {
   CONSTITUENCIES,
   CONSTITUENCY_DATA,
   getMLAForConstituency,
+  getDistrictForConstituency,
+  getConstituenciesByDistrict,
   type Constituency,
   type ConstituencyInfo,
 } from "./constituencies";

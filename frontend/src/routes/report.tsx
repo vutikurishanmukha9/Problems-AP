@@ -9,6 +9,7 @@ import {
   CONSTITUENCY_DATA,
   DISTRICTS_DATA,
   departmentForCategory,
+  getDistrictForConstituency,
 } from "@/data/taxonomy";
 import { getMLAForConstituency } from "@/data/constituencies";
 import { formatDateTime } from "@/data/problems";
@@ -407,9 +408,14 @@ function ReportPage() {
                   <select
                     id="constituency"
                     value={constituency}
-                    onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                      setConstituency(e.target.value)
-                    }
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                      const chosen = e.target.value;
+                      setConstituency(chosen);
+                      if (chosen) {
+                        const mappedDist = getDistrictForConstituency(chosen);
+                        if (mappedDist) setDistrict(mappedDist);
+                      }
+                    }}
                     className="select-ap mt-1.5 h-11 w-full px-3.5 text-sm text-ink shadow-2xs font-medium"
                   >
                     <option value="">Select Assembly Constituency (175 AP Constituencies)</option>
@@ -419,10 +425,20 @@ function ReportPage() {
                       </option>
                     ))}
                   </select>
-                  {constituency && getMLAForConstituency(constituency) && (
-                    <div className="mt-2.5 flex items-center gap-2 rounded-lg border border-accent/20 bg-accent-soft px-3 py-2 text-xs">
-                      <span className="font-semibold text-ink-2">Elected MLA:</span>
-                      <span className="font-bold text-accent">{getMLAForConstituency(constituency)}</span>
+                  {constituency && (
+                    <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-lg border border-accent/20 bg-accent-soft px-3 py-2 text-xs">
+                      {getDistrictForConstituency(constituency) && (
+                        <div className="flex items-center gap-1">
+                          <span className="font-semibold text-ink-2">District:</span>
+                          <span className="font-bold text-ink">{getDistrictForConstituency(constituency)}</span>
+                        </div>
+                      )}
+                      {getMLAForConstituency(constituency) && (
+                        <div className="flex items-center gap-1">
+                          <span className="font-semibold text-ink-2">Elected MLA:</span>
+                          <span className="font-bold text-accent">{getMLAForConstituency(constituency)}</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
