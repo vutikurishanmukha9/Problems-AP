@@ -1,10 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
-import { Search, SlidersHorizontal, LayoutGrid, Rows3 } from "lucide-react";
+import { Search, SlidersHorizontal, LayoutGrid, Rows3, X, PlusCircle } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ProblemCard, ProblemRow } from "@/components/problem-card";
-import { Button } from "@/components/ui-kit";
+import { Button, ButtonLink } from "@/components/ui-kit";
 import { PROBLEMS, type Problem } from "@/data/problems";
 import {
   CATEGORIES,
@@ -48,18 +48,14 @@ function Explore() {
   const [view, setView] = useState<"grid" | "list">("grid");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Load live problems from backend and merge with seed
+  // Load live problems from backend
   useEffect(() => {
     let active = true;
     async function loadProblems() {
       try {
         const res = await apiClient.getProblems({ pageSize: 100 });
-        if (active && res.items && res.items.length > 0) {
-          setAllProblems((prev) => {
-            const existingIds = new Set(prev.map((p) => p.id));
-            const newFromApi = res.items.filter((p) => !existingIds.has(p.id));
-            return [...newFromApi, ...prev];
-          });
+        if (active && res?.items) {
+          setAllProblems(res.items);
         }
       } catch {
         // Fallback to initial
@@ -128,8 +124,18 @@ function Explore() {
                   value={query}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
                   placeholder="Search by keywords, constituency, area, district, or ministry..."
-                  className="h-10 w-full rounded-full border border-line bg-canvas pl-10 pr-4 text-xs sm:text-sm placeholder:text-ink-3 focus:bg-surface"
+                  className="h-10 w-full rounded-full border border-line bg-canvas pl-10 pr-10 text-xs sm:text-sm placeholder:text-ink-3 focus:bg-surface"
                 />
+                {query && (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    onClick={() => setQuery("")}
+                    className="absolute right-3 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-ink-3 hover:bg-surface-2 hover:text-ink transition-colors"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
               </div>
 
               <Button
@@ -290,11 +296,24 @@ function Explore() {
 
           <div className="mt-4">
             {results.length === 0 ? (
-              <div className="rounded-xl border border-line bg-surface px-6 py-10 text-center">
-                <p className="text-sm font-medium">No problems match your filters</p>
-                <p className="mt-1 text-xs text-ink-2">
-                  Try clearing a filter, or share the problem yourself.
+              <div className="rounded-xl border border-line bg-surface px-6 py-12 text-center shadow-xs">
+                <p className="text-base font-bold text-ink">No problems found</p>
+                <p className="mx-auto mt-1 max-w-sm text-xs text-ink-2">
+                  {query || category !== "all" || department !== "all" || constituency !== "all" || district !== "all"
+                    ? "No reported issues match your active search and filters. Be the first citizen to report this problem."
+                    : "No public problems have been submitted yet. Be the first citizen to voice an issue in your area."}
                 </p>
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                  {(query || category !== "all" || department !== "all" || constituency !== "all" || district !== "all") && (
+                    <Button variant="secondary" size="sm" onClick={reset}>
+                      Reset filters
+                    </Button>
+                  )}
+                  <ButtonLink to="/report" size="sm">
+                    <PlusCircle className="mr-1.5 size-4" />
+                    Report this problem
+                  </ButtonLink>
+                </div>
               </div>
             ) : view === "grid" ? (
               <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">

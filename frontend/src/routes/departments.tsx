@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
-import { Search, ArrowUpDown, Building2, MapPin } from "lucide-react";
+import { Search, ArrowUpDown, Building2, MapPin, X } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import {
@@ -252,8 +252,18 @@ function StatisticsPage() {
                       ? "Search among 57 ministries..."
                       : "Search among 28 districts..."
                   }
-                  className="h-10.5 w-full rounded-full border border-line bg-surface pl-10 pr-4 text-sm font-medium placeholder:text-ink-3 focus:border-accent"
+                  className="h-10.5 w-full rounded-full border border-line bg-surface pl-10 pr-10 text-sm font-medium placeholder:text-ink-3 focus:border-accent"
                 />
+                {q && (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    onClick={() => setQ("")}
+                    className="absolute right-3 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-ink-3 hover:bg-surface-2 hover:text-ink transition-colors"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
               </div>
 
               <div className="flex items-center gap-2">

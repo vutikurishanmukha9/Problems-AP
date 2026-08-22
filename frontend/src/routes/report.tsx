@@ -10,6 +10,7 @@ import {
   DISTRICTS_DATA,
   departmentForCategory,
 } from "@/data/taxonomy";
+import { getMLAForConstituency } from "@/data/constituencies";
 import { formatDateTime } from "@/data/problems";
 import { apiClient } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
@@ -54,9 +55,21 @@ function ReportPage() {
   const [submitted, setSubmitted] = useState<{ ref: string; token?: string; at: string } | null>(
     null,
   );
+  const [copiedId, setCopiedId] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleCopyId = async () => {
+    if (!submitted?.ref) return;
+    try {
+      await navigator.clipboard?.writeText(submitted.ref);
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+    } catch {
+      // Fallback
+    }
+  };
 
   const requestLocation = () => {
     if (!globalThis.navigator?.geolocation) {
@@ -197,11 +210,20 @@ function ReportPage() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="shrink-0"
-                  onClick={() => navigator.clipboard?.writeText(submitted.ref)}
+                  className="shrink-0 transition-all duration-150"
+                  onClick={handleCopyId}
                 >
-                  <Copy aria-hidden className="size-4" />
-                  Copy ID
+                  {copiedId ? (
+                    <>
+                      <Check aria-hidden className="size-4 text-ok" />
+                      <span className="font-semibold text-ok">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy aria-hidden className="size-4" />
+                      Copy ID
+                    </>
+                  )}
                 </Button>
               </div>
               <dl className="mt-4 space-y-2 border-t border-line pt-4 text-xs sm:text-sm">
@@ -397,6 +419,12 @@ function ReportPage() {
                       </option>
                     ))}
                   </select>
+                  {constituency && getMLAForConstituency(constituency) && (
+                    <div className="mt-2.5 flex items-center gap-2 rounded-lg border border-accent/20 bg-accent-soft px-3 py-2 text-xs">
+                      <span className="font-semibold text-ink-2">Elected MLA:</span>
+                      <span className="font-bold text-accent">{getMLAForConstituency(constituency)}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-3.5">

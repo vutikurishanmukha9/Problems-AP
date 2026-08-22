@@ -1,6 +1,17 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { MapPin, Users, Repeat, FileText, ThumbsUp, Check, Clock } from "lucide-react";
+import {
+  MapPin,
+  Users,
+  Repeat,
+  FileText,
+  ThumbsUp,
+  Check,
+  Clock,
+  Copy,
+  X,
+  Maximize2,
+} from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ProblemMap } from "@/components/problem-map";
@@ -77,6 +88,8 @@ function ProblemDetail() {
   const [reportsCount, setReportsCount] = useState<number>(p.reports);
   const [signaled, setSignaled] = useState(false);
   const [signaling, setSignaling] = useState(false);
+  const [copiedRef, setCopiedRef] = useState(false);
+  const [activePhoto, setActivePhoto] = useState<string | null>(null);
   const [related, setRelated] = useState<Problem[]>([]);
 
   useEffect(() => {
@@ -176,8 +189,29 @@ function ProblemDetail() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <dt className="text-ink-3 font-medium">Ref ID:</dt>
-                    <dd className="font-mono text-xs font-bold text-accent bg-accent-soft px-2 py-0.5 rounded border border-accent/20">
-                      {p.id}
+                    <dd className="inline-flex items-center gap-1 font-mono text-xs font-bold text-accent bg-accent-soft px-2 py-0.5 rounded border border-accent/20">
+                      <span>{p.id}</span>
+                      <button
+                        type="button"
+                        aria-label="Copy reference ID"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard?.writeText(p.id);
+                            setCopiedRef(true);
+                            setTimeout(() => setCopiedRef(false), 2000);
+                          } catch {
+                            // Fallback
+                          }
+                        }}
+                        className="ml-1 inline-flex items-center text-accent hover:text-accent-hover transition-colors"
+                        title="Copy Reference ID"
+                      >
+                        {copiedRef ? (
+                          <Check className="size-3 text-ok" />
+                        ) : (
+                          <Copy className="size-3" />
+                        )}
+                      </button>
                     </dd>
                   </div>
                 </dl>
@@ -211,18 +245,33 @@ function ProblemDetail() {
 
             {p.evidence && p.evidence.length > 0 && (
               <section className="rounded-xl border border-line bg-surface p-6 shadow-xs">
-                <h2 className="text-base font-bold tracking-tight text-ink">Citizen Evidence Photos</h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-bold tracking-tight text-ink">Citizen Evidence Photos</h2>
+                  <span className="text-xs text-ink-3 font-medium">Click to enlarge</span>
+                </div>
                 <div className="mt-3.5 grid gap-3.5 sm:grid-cols-2">
                   {p.evidence.map((src: string, i: number) => (
-                    <img
+                    <button
                       key={src}
-                      src={src}
-                      alt={`Citizen-submitted evidence ${i + 1} for: ${p.title}`}
-                      loading="lazy"
-                      width={600}
-                      height={400}
-                      className="w-full rounded-lg border border-line object-cover shadow-2xs"
-                    />
+                      type="button"
+                      onClick={() => setActivePhoto(src)}
+                      className="group relative block w-full overflow-hidden rounded-lg border border-line bg-surface-2 text-left shadow-2xs transition-transform duration-200 hover:scale-[1.01]"
+                    >
+                      <img
+                        src={src}
+                        alt={`Citizen-submitted evidence ${i + 1} for: ${p.title}`}
+                        loading="lazy"
+                        width={600}
+                        height={400}
+                        className="w-full aspect-[4/3] object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-black/80 px-3 py-1.5 text-xs font-semibold text-white shadow-md">
+                          <Maximize2 className="size-3.5" />
+                          View Photo
+                        </span>
+                      </div>
+                    </button>
                   ))}
                 </div>
               </section>
@@ -323,6 +372,35 @@ function ProblemDetail() {
             <p className="text-xs text-ink-3">Last activity {timeAgo(p.reportedAt)}.</p>
           </aside>
         </div>
+
+        {/* Full-Screen Evidence Photo Viewer Modal */}
+        {activePhoto && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+            onClick={() => setActivePhoto(null)}
+          >
+            <div
+              className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-xl bg-surface p-2 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setActivePhoto(null)}
+                aria-label="Close photo preview"
+                className="absolute right-4 top-4 z-10 grid size-8 place-items-center rounded-full bg-black/75 text-white shadow-md transition-colors hover:bg-black"
+              >
+                <X className="size-4" />
+              </button>
+              <img
+                src={activePhoto}
+                alt="Evidence Fullscreen View"
+                className="max-h-[82vh] w-auto max-w-full rounded-lg object-contain"
+              />
+            </div>
+          </div>
+        )}
       </main>
       <SiteFooter />
     </>
