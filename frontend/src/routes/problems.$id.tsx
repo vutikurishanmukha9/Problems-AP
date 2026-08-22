@@ -151,17 +151,17 @@ function ProblemDetail() {
 
             <div className="mt-3.5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
               <div className="min-w-0">
-                <h1 className="max-w-3xl text-2xl font-extrabold sm:text-3xl sm:leading-snug tracking-tight text-ink">
+                <h1 className="max-w-3xl text-xl sm:text-2xl lg:text-3xl font-extrabold sm:leading-snug tracking-tight text-ink">
                   {p.title}
                 </h1>
-                <dl className="mt-3.5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs sm:text-sm">
+                <dl className="mt-3.5 flex flex-wrap items-center gap-x-4 sm:gap-x-5 gap-y-2 text-xs sm:text-sm">
                   <div className="flex items-center gap-1.5">
                     <dt className="text-ink-3 font-medium">Category:</dt>
                     <dd className="font-bold text-ink">{categoryLabel(p.category)}</dd>
                   </div>
-                  <div className="flex min-w-0 items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <dt className="text-ink-3 font-medium">Department:</dt>
-                    <dd className="truncate font-semibold text-ink">
+                    <dd className="font-semibold text-ink">
                       {p.department}
                       {getMinisterForDepartment(p.department) ? (
                         <span className="ml-1 text-xs font-normal text-ink-2">

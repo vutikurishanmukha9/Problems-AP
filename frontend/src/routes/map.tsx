@@ -67,13 +67,13 @@ function MapPage() {
             <p className="mt-1 max-w-2xl text-xs sm:text-sm text-ink-2">
               Markers show approximate areas, never exact reported coordinates.
             </p>
-            <div className="mt-3 flex flex-wrap gap-1.5">
+            <div className="mt-3 flex items-center gap-1.5 overflow-x-auto pb-1.5 sm:flex-wrap sm:pb-0">
               <FilterChip
                 active={category === "all"}
                 onClick={() => setCategory("all")}
                 label="All"
               />
-              {CATEGORIES.slice(0, 8).map((c) => (
+              {CATEGORIES.map((c) => (
                 <FilterChip
                   key={c.id}
                   active={category === c.id}

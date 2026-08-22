@@ -350,7 +350,12 @@ function StatisticsPage() {
 
                   {/* Name and responsible minister / HQ */}
                   <div className="min-w-0">
-                    <p className="text-sm font-bold tracking-tight text-ink">{item.name}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex size-5 shrink-0 items-center justify-center rounded bg-surface-2 border border-line text-[0.625rem] font-extrabold text-ink sm:hidden">
+                        #{idx + 1}
+                      </span>
+                      <p className="text-sm font-bold tracking-tight text-ink">{item.name}</p>
+                    </div>
                     <p className="mt-0.5 text-xs font-medium text-ink-2">{item.subtext}</p>
                   </div>
 
