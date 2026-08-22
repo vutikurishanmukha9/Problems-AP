@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useRef, useState, type ReactNode, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ReactNode, type ChangeEvent } from "react";
 import { Camera, Check, Clock, Copy, Loader2, MapPin, X } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -61,6 +61,13 @@ function ReportPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Ensure every step and confirmation stage loads at the top of the page
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [step, submitted]);
 
   const handleCopyId = async () => {
     if (!submitted?.ref) return;
