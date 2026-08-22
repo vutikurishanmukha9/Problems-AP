@@ -9,14 +9,14 @@ export function SiteHeader() {
   return (
     <>
       {/* Citizen Platform Notice Bar */}
-      <div className="border-b border-line bg-amber-500/10 px-3 py-1.5 text-center text-[0.6875rem] font-medium text-amber-950 sm:px-4 sm:text-xs dark:text-amber-200">
+      <div className="border-b border-line bg-amber-500/10 px-3 py-1 text-center text-[0.6875rem] font-medium text-amber-950 sm:px-4 sm:text-xs dark:text-amber-200">
         📢 <span className="font-semibold">Citizen-Built Platform:</span> Problems@AP is an
         independent, unofficial platform created by citizens to report and view public problems. Not
         affiliated with the government.
       </div>
 
       <header className="sticky top-0 z-40 border-b border-line bg-canvas/90 backdrop-blur-md">
-        <div className="container-ap flex h-14 sm:h-16 items-center justify-between gap-3">
+        <div className="container-ap flex h-13 sm:h-14 items-center justify-between gap-3">
           <Link to="/" className="shrink-0 text-base sm:text-[1.05rem] font-bold tracking-tight text-ink">
             Problems<span className="text-accent">@</span>AP
             <span className="ml-1.5 sm:ml-2 rounded border border-line bg-surface px-1.5 py-0.5 text-[0.6rem] sm:text-[0.65rem] font-medium text-ink-2">

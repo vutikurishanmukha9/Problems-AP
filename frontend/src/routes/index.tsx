@@ -72,7 +72,7 @@ function Hero() {
 
   return (
     <section className="border-b border-line bg-canvas">
-      <div className="container-ap py-7 sm:py-12 lg:py-16">
+      <div className="container-ap pt-3 pb-7 sm:pt-5 sm:pb-10 lg:pt-6 lg:pb-12">
         <div className="grid gap-6 sm:gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-center">
           {/* Left Column: Comprehensive Civic Headline & Actions */}
           <div className="min-w-0">

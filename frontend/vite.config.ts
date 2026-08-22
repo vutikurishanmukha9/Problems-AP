@@ -7,10 +7,10 @@ import { nitro } from "nitro/vite";
 import path from "node:path";
 
 const getNitroPreset = () => {
-  if (process.env.NITRO_PRESET) {
-    return process.env.NITRO_PRESET;
+  if (process.env["NITRO_PRESET"]) {
+    return process.env["NITRO_PRESET"];
   }
-  if (process.env.CF_PAGES || process.env.CLOUDFLARE) {
+  if (process.env["CF_PAGES"] || process.env["CLOUDFLARE"]) {
     return "cloudflare-pages";
   }
   return "vercel";
