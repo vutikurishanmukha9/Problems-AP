@@ -10,6 +10,7 @@ import {
   DISTRICTS_DATA,
   departmentForCategory,
   getDistrictForConstituency,
+  getConstituenciesByDistrict,
 } from "@/data/taxonomy";
 import { getMLAForConstituency } from "@/data/constituencies";
 import { formatDateTime } from "@/data/problems";
@@ -386,7 +387,16 @@ function ReportPage() {
                   <select
                     id="district-select"
                     value={district}
-                    onChange={(e: ChangeEvent<HTMLSelectElement>) => setDistrict(e.target.value)}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                      const newDist = e.target.value;
+                      setDistrict(newDist);
+                      if (constituency) {
+                        const curDist = getDistrictForConstituency(constituency);
+                        if (curDist && curDist !== newDist) {
+                          setConstituency("");
+                        }
+                      }
+                    }}
                     className="select-ap mt-1.5 h-11 w-full px-3.5 text-sm text-ink shadow-2xs font-medium"
                   >
                     {DISTRICTS_DATA.map((d) => (
@@ -397,14 +407,19 @@ function ReportPage() {
                   </select>
                 </div>
 
-                {/* Constituency Selector */}
+                {/* Constituency Selector (filtered to selected district) */}
                 <div className="mt-4">
-                  <label
-                    htmlFor="constituency"
-                    className="block text-xs font-semibold uppercase tracking-wider text-ink-2"
-                  >
-                    Assembly Constituency
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label
+                      htmlFor="constituency"
+                      className="block text-xs font-semibold uppercase tracking-wider text-ink-2"
+                    >
+                      Assembly Constituency
+                    </label>
+                    <span className="text-[0.6875rem] font-semibold text-ink-3">
+                      {district ? `${getConstituenciesByDistrict(district).length} in ${district}` : "175 Total"}
+                    </span>
+                  </div>
                   <select
                     id="constituency"
                     value={constituency}
@@ -418,8 +433,12 @@ function ReportPage() {
                     }}
                     className="select-ap mt-1.5 h-11 w-full px-3.5 text-sm text-ink shadow-2xs font-medium"
                   >
-                    <option value="">Select Assembly Constituency (175 AP Constituencies)</option>
-                    {CONSTITUENCY_DATA.map((c) => (
+                    <option value="">
+                      {district
+                        ? `Select Constituency (${district} — ${getConstituenciesByDistrict(district).length} seats)`
+                        : "Select Assembly Constituency (175 AP Constituencies)"}
+                    </option>
+                    {(district ? getConstituenciesByDistrict(district) : CONSTITUENCY_DATA).map((c) => (
                       <option key={c.id} value={c.name}>
                         {c.name}
                       </option>

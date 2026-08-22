@@ -11,6 +11,8 @@ import {
   CONSTITUENCY_DATA,
   MINISTRIES_DATA,
   DISTRICTS_DATA,
+  getConstituenciesByDistrict,
+  getDistrictForConstituency,
 } from "@/data/taxonomy";
 import { apiClient } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
@@ -199,14 +201,27 @@ function Explore() {
                   id="f-const"
                   className="select-ap h-9.5 w-full min-w-0 px-3 text-xs text-ink shadow-2xs font-medium"
                   value={constituency}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setConstituency(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                    const c = e.target.value;
+                    setConstituency(c);
+                    if (c !== "all") {
+                      const mappedDist = getDistrictForConstituency(c);
+                      if (mappedDist) setDistrict(mappedDist);
+                    }
+                  }}
                 >
-                  <option value="all">All 175 Constituencies</option>
-                  {CONSTITUENCY_DATA.map((c) => (
-                    <option key={c.id} value={c.name}>
-                      {c.name}
-                    </option>
-                  ))}
+                  <option value="all">
+                    {district !== "all"
+                      ? `All ${district} Constituencies (${getConstituenciesByDistrict(district).length})`
+                      : "All 175 Constituencies"}
+                  </option>
+                  {(district !== "all" ? getConstituenciesByDistrict(district) : CONSTITUENCY_DATA).map(
+                    (c) => (
+                      <option key={c.id} value={c.name}>
+                        {c.name}
+                      </option>
+                    ),
+                  )}
                 </select>
               </div>
               <div>
@@ -217,7 +232,16 @@ function Explore() {
                   id="f-loc"
                   className="select-ap h-9.5 w-full min-w-0 px-3 text-xs text-ink shadow-2xs font-medium"
                   value={district}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setDistrict(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                    const newD = e.target.value;
+                    setDistrict(newD);
+                    if (constituency !== "all") {
+                      const cDist = getDistrictForConstituency(constituency);
+                      if (newD !== "all" && cDist && cDist !== newD) {
+                        setConstituency("all");
+                      }
+                    }
+                  }}
                 >
                   <option value="all">All 28 Districts</option>
                   {DISTRICTS_DATA.map((d) => (
