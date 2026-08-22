@@ -186,7 +186,7 @@ function Explore() {
                   <option value="all">All 57 Ministries</option>
                   {MINISTRIES_DATA.map((d) => (
                     <option key={d.id} value={d.name}>
-                      {d.name} — Minister: {d.minister}
+                      {d.name}
                     </option>
                   ))}
                 </select>
@@ -204,7 +204,7 @@ function Explore() {
                   <option value="all">All 175 Constituencies</option>
                   {CONSTITUENCY_DATA.map((c) => (
                     <option key={c.id} value={c.name}>
-                      {c.name} — MLA: {c.mla}
+                      {c.name}
                     </option>
                   ))}
                 </select>
@@ -222,7 +222,7 @@ function Explore() {
                   <option value="all">All 28 Districts</option>
                   {DISTRICTS_DATA.map((d) => (
                     <option key={d.id} value={d.name}>
-                      {d.name} (HQ: {d.headquarters})
+                      {d.name}
                     </option>
                   ))}
                 </select>

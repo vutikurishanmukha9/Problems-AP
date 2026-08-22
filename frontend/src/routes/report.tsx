@@ -390,7 +390,7 @@ function ReportPage() {
                   >
                     {DISTRICTS_DATA.map((d) => (
                       <option key={d.id} value={d.name}>
-                        {d.name} (HQ: {d.headquarters})
+                        {d.name}
                       </option>
                     ))}
                   </select>
@@ -415,7 +415,7 @@ function ReportPage() {
                     <option value="">Select Assembly Constituency (175 AP Constituencies)</option>
                     {CONSTITUENCY_DATA.map((c) => (
                       <option key={c.id} value={c.name}>
-                        {c.name} — MLA: {c.mla}
+                        {c.name}
                       </option>
                     ))}
                   </select>
