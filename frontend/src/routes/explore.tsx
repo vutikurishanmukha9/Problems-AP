@@ -16,8 +16,20 @@ import {
 } from "@/data/taxonomy";
 import { apiClient } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+import { z } from "zod";
+
+const exploreSearchSchema = z.object({
+  category: z.string().optional(),
+  department: z.string().optional(),
+  constituency: z.string().optional(),
+  district: z.string().optional(),
+  q: z.string().optional(),
+});
+
+export type ExploreSearch = z.infer<typeof exploreSearchSchema>;
 
 export const Route = createFileRoute("/explore")({
+  validateSearch: (search) => exploreSearchSchema.parse(search),
   head: () => ({
     meta: [
       { title: "Explore Problems Reported Across Andhra Pradesh" },
@@ -40,15 +52,25 @@ export const Route = createFileRoute("/explore")({
 type Sort = "recent" | "nearby" | "most-reported";
 
 function Explore() {
+  const search = Route.useSearch();
   const [allProblems, setAllProblems] = useState<Problem[]>(PROBLEMS);
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("all");
-  const [department, setDepartment] = useState("all");
-  const [constituency, setConstituency] = useState("all");
-  const [district, setDistrict] = useState("all");
+  const [query, setQuery] = useState(search.q ?? "");
+  const [category, setCategory] = useState(search.category ?? "all");
+  const [department, setDepartment] = useState(search.department ?? "all");
+  const [constituency, setConstituency] = useState(search.constituency ?? "all");
+  const [district, setDistrict] = useState(search.district ?? "all");
   const [sort, setSort] = useState<Sort>("recent");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Sync state if URL search query changes
+  useEffect(() => {
+    if (search.category !== undefined) setCategory(search.category);
+    if (search.department !== undefined) setDepartment(search.department);
+    if (search.constituency !== undefined) setConstituency(search.constituency);
+    if (search.district !== undefined) setDistrict(search.district);
+    if (search.q !== undefined) setQuery(search.q);
+  }, [search.category, search.department, search.constituency, search.district, search.q]);
 
   // Load live problems from backend
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { PROBLEMS, type Problem } from "@/data/problems";
+import { PROBLEMS, parseDate, type Problem } from "@/data/problems";
 import {
   CONSTITUENCY_DATA,
   DISTRICTS_DATA,
@@ -66,22 +66,16 @@ export interface OverviewStatistics {
   districts_active: number;
 }
 
-function parseCategory(raw: string): Problem["category"] {
-  switch (raw) {
-    case "drinking-water":
-    case "roads":
-    case "sanitation":
-    case "power":
-    case "street-lights":
-    case "drainage":
-    case "public-health":
-    case "transport":
-    case "irrigation":
-    case "ration":
-      return raw;
-    default:
-      return "roads";
-  }
+function parseCategory(raw: string): string {
+  if (!raw) return "roads";
+  const normalized = raw.trim().toLowerCase();
+  if (CATEGORIES.some((c) => c.id === normalized)) return normalized;
+  // Legacy backward-compatibility fallbacks
+  if (normalized === "drinking-water") return "water";
+  if (normalized === "power") return "electricity";
+  if (normalized === "sanitation") return "garbage";
+  if (normalized === "public-health") return "health";
+  return normalized || "roads";
 }
 
 function parseStatus(raw: string): StatusId {
@@ -145,6 +139,10 @@ function mapBackendProblem(p: {
   timeline?: { status: string; title: string; detail: string; timestamp: string }[];
   evidence?: { image_url: string }[];
 }): Problem {
+  const normalizedReportedAt = p.reported_at
+    ? parseDate(p.reported_at).toISOString()
+    : new Date().toISOString();
+
   return {
     id: p.id,
     title: p.title,
@@ -156,7 +154,7 @@ function mapBackendProblem(p: {
     area: p.area,
     lat: p.latitude || 16.5,
     lng: p.longitude || 80.6,
-    reportedAt: p.reported_at,
+    reportedAt: normalizedReportedAt,
     status: parseStatus(p.status),
     reports: p.upvotes_count || 1,
     confirmations: Math.round((p.upvotes_count || 1) * 0.7),
@@ -167,7 +165,7 @@ function mapBackendProblem(p: {
       kind: "reported",
       label: t.title,
       detail: t.detail,
-      at: t.timestamp,
+      at: t.timestamp ? parseDate(t.timestamp).toISOString() : normalizedReportedAt,
     })),
   };
 }

@@ -29,7 +29,7 @@ CATEGORY_TO_DEPT = {
     "water": "Rural Development & Rural Water Supply",
     "drainage": "Municipal Administration & Urban Development",
     "garbage": "Municipal Administration & Urban Development",
-    "power": "Energy",
+    "electricity": "Energy",
     "street-lights": "Municipal Administration & Urban Development",
     "transport": "Roads & Buildings",
     "health": "Health",
@@ -239,7 +239,7 @@ async def report_problem(payload: ProblemCreate, db: AsyncSession = Depends(get_
         problem_id = f"AP-2026-{random_num}"
 
     confirmation_token = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(timezone.utc)
 
     problem = Problem(
         id=problem_id,
@@ -303,7 +303,7 @@ async def upvote_problem_signal(problem_id: str, db: AsyncSession = Depends(get_
         .where(func.lower(Problem.id) == clean_id.lower())
         .values(
             upvotes_count=Problem.upvotes_count + 1,
-            updated_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            updated_at=datetime.now(timezone.utc),
         )
         .returning(Problem.id, Problem.upvotes_count)
     )

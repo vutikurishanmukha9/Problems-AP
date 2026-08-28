@@ -302,6 +302,7 @@ function StatisticsPage() {
                   <Link
                     key={item.name}
                     to="/explore"
+                    search={view === "ministries" ? { department: item.name } : { district: item.name }}
                     className="rounded-xl border border-line bg-surface p-4 shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-line-strong"
                   >
                     <div className="flex items-center justify-between">
@@ -379,6 +380,7 @@ function StatisticsPage() {
                   <div className="flex items-center justify-between sm:justify-end gap-2">
                     <Link
                       to="/explore"
+                      search={view === "ministries" ? { department: item.name } : { district: item.name }}
                       className="inline-flex h-8.5 items-center justify-center rounded-lg border border-line-strong bg-surface px-3.5 text-xs font-bold text-ink hover:bg-surface-2 hover:border-ink/40 transition-all shadow-2xs"
                     >
                       View Problems →

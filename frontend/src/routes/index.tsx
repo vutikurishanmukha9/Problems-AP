@@ -353,6 +353,7 @@ function ProblemStatisticsSection() {
             <Link
               key={m.id}
               to="/explore"
+              search={{ department: m.name }}
               className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 shadow-xs transition-all hover:bg-surface-2 hover:-translate-y-0.5 hover:shadow-sm"
             >
               <div className="min-w-0">
@@ -378,6 +379,7 @@ function ProblemStatisticsSection() {
             <Link
               key={d.id}
               to="/explore"
+              search={{ district: d.name }}
               className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 shadow-xs transition-all hover:bg-surface-2 hover:-translate-y-0.5 hover:shadow-sm"
             >
               <div className="min-w-0">
@@ -434,6 +436,7 @@ function CategoriesSection() {
           <Link
             key={c.id}
             to="/explore"
+            search={{ category: c.id }}
             className="group rounded-xl border border-line bg-surface p-4 shadow-xs transition-all hover:border-line-strong hover:bg-surface-2 hover:-translate-y-0.5"
           >
             <p className="text-xs font-bold text-ink group-hover:text-accent">{c.label}</p>

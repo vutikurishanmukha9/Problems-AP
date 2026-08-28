@@ -62,22 +62,56 @@ export function districtStats(problems: Problem[] = PROBLEMS) {
   return map;
 }
 
-export function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const h = Math.round(diff / 3_600_000);
-  if (h < 1) return "just now";
-  if (h < 24) return `${h}h ago`;
-  const d = Math.round(h / 24);
-  if (d < 30) return `${d}d ago`;
-  return `${Math.round(d / 30)}mo ago`;
+/** Safely parses ISO timestamp string, ensuring UTC interpretation if no timezone offset is present */
+export function parseDate(iso?: string): Date {
+  if (!iso) return new Date();
+  const trimmed = iso.trim();
+  if (!trimmed) return new Date();
+  // If string lacks timezone specifier (Z, +HH:MM, -HH:MM), treat as UTC ISO
+  const hasTimezone = trimmed.endsWith("Z") || /[+-]\d{2}(:\d{2})?$/.test(trimmed);
+  const normalized = hasTimezone ? trimmed : `${trimmed}Z`;
+  const d = new Date(normalized);
+  return isNaN(d.getTime()) ? new Date(trimmed) : d;
 }
 
-export function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("en-IN", {
+export function timeAgo(iso?: string): string {
+  if (!iso) return "just now";
+  const date = parseDate(iso);
+  const diffMs = Date.now() - date.getTime();
+
+  // If clock skew or future timestamp
+  if (diffMs < 0) return "just now";
+
+  const seconds = Math.floor(diffMs / 1000);
+  if (seconds < 60) return "just now";
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+
+  const years = Math.floor(days / 365);
+  return `${years}y ago`;
+}
+
+export function formatDateTime(iso?: string): string {
+  if (!iso) return "";
+  const date = parseDate(iso);
+  if (isNaN(date.getTime())) return iso;
+  return date.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
     day: "numeric",
     month: "short",
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    hour12: true,
   });
 }

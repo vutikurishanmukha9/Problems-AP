@@ -145,9 +145,15 @@ function ReportPage() {
     setSubmitting(true);
     setError(null);
     try {
+      const trimmedManual = manualArea.trim();
       const areaVal =
-        manualArea.trim() ||
-        (loc.kind === "ok" ? loc.area : constituency || district || "Andhra Pradesh Area");
+        trimmedManual.length >= 2
+          ? trimmedManual
+          : loc.kind === "ok" && loc.area
+            ? loc.area
+            : constituency
+              ? `${constituency}, ${district}`
+              : district || "Andhra Pradesh Area";
 
       const titleVal =
         description.trim().slice(0, 75).trim() + (description.length > 75 ? "…" : "");

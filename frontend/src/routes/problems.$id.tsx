@@ -92,6 +92,14 @@ function ProblemDetail() {
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
   const [related, setRelated] = useState<Problem[]>([]);
 
+  // Sync state when navigating between problems (e.g. from related problems)
+  useEffect(() => {
+    setReportsCount(p.reports);
+    setSignaled(false);
+    setCopiedRef(false);
+    setActivePhoto(null);
+  }, [p.id, p.reports]);
+
   useEffect(() => {
     let active = true;
     async function loadRelated() {
