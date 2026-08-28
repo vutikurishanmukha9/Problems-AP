@@ -11,9 +11,11 @@ import {
   departmentForCategory,
   getDistrictForConstituency,
   getConstituenciesByDistrict,
+  getCoordinatesForDistrict,
 } from "@/data/taxonomy";
 import { getMLAForConstituency } from "@/data/constituencies";
 import { formatDateTime } from "@/data/problems";
+import { ProblemMap } from "@/components/problem-map";
 import { apiClient } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
@@ -82,27 +84,131 @@ function ReportPage() {
 
   const requestLocation = () => {
     if (!globalThis.navigator?.geolocation) {
-      setLoc({ kind: "error", message: "Location is not available on this device." });
+      setLoc({ kind: "error", message: "Live GPS location is not available on this browser/device." });
       return;
     }
     setLoc({ kind: "loading" });
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLoc({
-          kind: "ok",
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: Math.round(pos.coords.accuracy),
-          area: "Approximate area detected near your position",
-        });
-      },
-      () =>
-        setLoc({
-          kind: "error",
-          message: "We couldn't get your location. You can type the area instead.",
-        }),
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
+
+    let bestPos: GeolocationPosition | null = null;
+    let watchId: number | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const finalizePosition = async (pos: GeolocationPosition) => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+
+      const { latitude, longitude, accuracy } = pos.coords;
+      let detectedArea = `GPS Location (${latitude.toFixed(6)}, ${longitude.toFixed(6)})`;
+
+      // High-precision reverse geocoding at street / building level
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+          { headers: { "Accept-Language": "en" } },
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const addr = data.address;
+          const road = addr?.road || addr?.street || addr?.pedestrian || "";
+          const locality =
+            addr?.suburb ||
+            addr?.neighbourhood ||
+            addr?.village ||
+            addr?.town ||
+            addr?.city_district ||
+            addr?.city ||
+            "";
+          const county = addr?.county || addr?.state_district || "";
+
+          const parts = [road, locality, county].filter(Boolean);
+          if (parts.length > 0) {
+            detectedArea = parts.join(", ");
+            if (!manualArea) {
+              setManualArea(parts.slice(0, 2).join(", "));
+            }
+          }
+          if (county) {
+            const matchedDistrict = DISTRICTS_DATA.find(
+              (d) =>
+                county.toLowerCase().includes(d.name.toLowerCase()) ||
+                d.name.toLowerCase().includes(county.toLowerCase()),
+            );
+            if (matchedDistrict) {
+              setDistrict(matchedDistrict.name);
+            }
+          }
+        }
+      } catch {
+        // Fallback to high precision GPS coordinates
+      }
+
+      setLoc({
+        kind: "ok",
+        lat: latitude,
+        lng: longitude,
+        accuracy: Math.round(accuracy),
+        area: detectedArea,
+      });
+    };
+
+    try {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          if (!bestPos || pos.coords.accuracy < bestPos.coords.accuracy) {
+            bestPos = pos;
+          }
+          // Sub-10 meter satellite lock achieved: finalize immediately
+          if (pos.coords.accuracy <= 10) {
+            void finalizePosition(pos);
+          }
+        },
+        (err) => {
+          if (!bestPos) {
+            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+            if (timeoutId !== null) clearTimeout(timeoutId);
+            let msg = "Could not get live location. You can select your district and constituency manually.";
+            if (err.code === err.PERMISSION_DENIED) {
+              msg = "Location permission denied. You can select your district and constituency manually.";
+            }
+            setLoc({ kind: "error", message: msg });
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 15000,
+        },
+      );
+
+      // Max sampling window of 4 seconds to lock the best satellite fix
+      timeoutId = setTimeout(() => {
+        if (bestPos) {
+          void finalizePosition(bestPos);
+        } else {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              void finalizePosition(pos);
+            },
+            () => {
+              if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+              setLoc({
+                kind: "error",
+                message: "Location request timed out. Please select district manually.",
+              });
+            },
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 },
+          );
+        }
+      }, 4000);
+    } catch {
+      setLoc({ kind: "error", message: "Failed to access device GPS location hardware." });
+    }
   };
 
   const addPhotos = (files: FileList | null) => {
@@ -173,6 +279,7 @@ function ReportPage() {
         }
       }
 
+      const districtCoords = getCoordinatesForDistrict(district);
       const result = await apiClient.submitProblem({
         title: titleVal,
         description: description.trim(),
@@ -180,8 +287,8 @@ function ReportPage() {
         constituency: constituency || undefined,
         district: district || "Visakhapatnam",
         area: areaVal,
-        latitude: loc.kind === "ok" ? loc.lat : undefined,
-        longitude: loc.kind === "ok" ? loc.lng : undefined,
+        latitude: loc.kind === "ok" ? loc.lat : districtCoords.lat,
+        longitude: loc.kind === "ok" ? loc.lng : districtCoords.lng,
         evidence: uploadedEvidenceUrls.length > 0 ? uploadedEvidenceUrls : undefined,
       });
 
@@ -492,29 +599,86 @@ function ReportPage() {
                 </div>
 
                 <div className="mt-4 rounded-xl border border-line bg-surface p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-ink">Live GPS Location</span>
+                    <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[0.6875rem] font-semibold text-ink-3">
+                      Optional
+                    </span>
+                  </div>
+
                   {loc.kind === "ok" ? (
-                    <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2.5">
-                      <MapPin aria-hidden className="mt-0.5 size-4 text-accent" />
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold">Device location obtained</p>
-                        <p className="mt-0.5 text-xs text-ink-2">{loc.area}</p>
-                        <p className="mt-0.5 text-[0.6875rem] text-ink-3">
-                          Accuracy ±{loc.accuracy} m · stored privately
-                        </p>
-                        <button
-                          type="button"
-                          onClick={requestLocation}
-                          className="mt-2 text-xs text-ink underline underline-offset-2"
-                        >
-                          Retry location
-                        </button>
+                    <div className="mt-3 space-y-2.5">
+                      <div className="rounded-lg border border-ok/30 bg-ok/5 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <MapPin aria-hidden className="mt-0.5 size-4 text-ok shrink-0" />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs font-bold text-ink">Satellite GPS Lock Confirmed</p>
+                                <span className="rounded bg-ok/20 px-1.5 py-0.2 text-[0.625rem] font-extrabold text-ok">
+                                  High Precision (±{loc.accuracy}m)
+                                </span>
+                              </div>
+                              <p className="mt-0.5 text-xs text-ink-2 truncate">{loc.area}</p>
+                              <p className="mt-1 text-[0.6875rem] font-semibold text-ink-3">
+                                Exact Coordinates: {loc.lat.toFixed(6)}, {loc.lng.toFixed(6)}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setLoc({ kind: "idle" })}
+                            className="text-xs font-semibold text-ink-3 hover:text-accent"
+                            title="Clear live location"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                        <div className="mt-2.5 flex items-center gap-3 border-t border-ok/20 pt-2 text-xs">
+                          <button
+                            type="button"
+                            onClick={requestLocation}
+                            className="font-semibold text-accent hover:underline"
+                          >
+                            Re-scan Satellite Fix
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Visual Verification Map Preview */}
+                      <div className="overflow-hidden rounded-lg border border-line shadow-2xs">
+                        <ProblemMap
+                          problems={[
+                            {
+                              id: "preview-live",
+                              title: "Your GPS Location",
+                              description: loc.area,
+                              category: category || "roads",
+                              department: "",
+                              constituency: constituency || "",
+                              district: district || "",
+                              area: loc.area,
+                              lat: loc.lat,
+                              lng: loc.lng,
+                              reportedAt: new Date().toISOString(),
+                              status: "reported",
+                              reports: 1,
+                              confirmations: 1,
+                              recurring: false,
+                              distanceKm: 0,
+                              evidence: [],
+                              timeline: [],
+                            },
+                          ]}
+                          selectedId="preview-live"
+                          height="160px"
+                        />
                       </div>
                     </div>
                   ) : (
                     <>
-                      <p className="text-xs font-semibold">Or use device GPS location</p>
-                      <p className="mt-0.5 text-xs text-ink-2">
-                        Automatically locates your approximate area.
+                      <p className="mt-1 text-xs text-ink-2">
+                        You can optionally auto-detect your location using your device GPS, or manually select your district and constituency above.
                       </p>
                       <Button
                         className="mt-3"
@@ -526,12 +690,12 @@ function ReportPage() {
                         {loc.kind === "loading" ? (
                           <Loader2 aria-hidden className="size-3.5 animate-spin" />
                         ) : (
-                          <MapPin aria-hidden className="size-3.5" />
+                          <MapPin aria-hidden className="size-3.5 text-accent" />
                         )}
-                        {loc.kind === "loading" ? "Locating…" : "Use my location"}
+                        {loc.kind === "loading" ? "Detecting GPS Location…" : "Auto-detect Live Location"}
                       </Button>
                       {loc.kind === "error" && (
-                        <p role="alert" className="mt-2 text-xs text-accent">
+                        <p role="alert" className="mt-2 text-xs text-warn font-medium">
                           {loc.message}
                         </p>
                       )}

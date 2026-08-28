@@ -40,6 +40,37 @@ CATEGORY_TO_DEPT = {
     "other": "General Administration",
 }
 
+DISTRICT_COORDS = {
+    "alluri sitharama raju": (18.0833, 82.6667),
+    "anakapalli": (17.6913, 83.0039),
+    "ananthapuramu": (14.6819, 77.6006),
+    "annamayya": (14.0560, 78.7521),
+    "bapatla": (15.9056, 80.4674),
+    "chittoor": (13.2172, 79.1003),
+    "dr. b. r. ambedkar konaseema": (16.5787, 82.0061),
+    "east godavari": (17.0005, 81.8040),
+    "eluru": (16.7107, 81.0952),
+    "guntur": (16.3067, 80.4365),
+    "kakinada": (16.9891, 82.2475),
+    "krishna": (16.1875, 81.1389),
+    "kurnool": (15.8281, 78.0373),
+    "markapuram": (15.7350, 79.2700),
+    "nandyal": (15.4881, 78.4836),
+    "ntr": (16.5062, 80.6480),
+    "palnadu": (16.2359, 80.0494),
+    "parvathipuram manyam": (18.7797, 83.4287),
+    "polavaram": (17.4475, 81.7767),
+    "prakasam": (15.5057, 80.0499),
+    "sri potti sriramulu nellore": (14.4426, 79.9865),
+    "sri sathya sai": (14.1652, 77.8105),
+    "srikakulam": (18.2969, 83.8968),
+    "tirupati": (13.6288, 79.4192),
+    "visakhapatnam": (17.6868, 83.2185),
+    "vizianagaram": (18.1124, 83.3956),
+    "west godavari": (16.5449, 81.5212),
+    "y.s.r. kadapa": (14.4673, 78.8242),
+}
+
 
 async def _enrich_problem(problem: Problem, db: AsyncSession) -> ProblemOut:
     """Enriches problem with elected MLA name and District Headquarters from taxonomy tables."""
@@ -241,6 +272,12 @@ async def report_problem(payload: ProblemCreate, db: AsyncSession = Depends(get_
     confirmation_token = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
 
+    # Resolve geographic coordinates if client GPS was unavailable
+    district_norm = payload.district.strip().lower()
+    default_lat, default_lng = DISTRICT_COORDS.get(district_norm, (16.5, 80.6))
+    final_lat = payload.latitude if payload.latitude is not None and payload.latitude > 0 else default_lat
+    final_lng = payload.longitude if payload.longitude is not None and payload.longitude > 0 else default_lng
+
     problem = Problem(
         id=problem_id,
         title=sanitize_input(payload.title),
@@ -250,8 +287,8 @@ async def report_problem(payload: ProblemCreate, db: AsyncSession = Depends(get_
         constituency=payload.constituency.strip() if payload.constituency else None,
         district=payload.district.strip(),
         area=sanitize_input(payload.area),
-        latitude=payload.latitude,
-        longitude=payload.longitude,
+        latitude=final_lat,
+        longitude=final_lng,
         status="reported",
         confirmation_token=confirmation_token,
         upvotes_count=1,

@@ -4,7 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ProblemMap } from "@/components/problem-map";
 import { ProblemRow } from "@/components/problem-card";
-import { type Problem } from "@/data/problems";
+import { PROBLEMS, type Problem } from "@/data/problems";
 import { CATEGORIES } from "@/data/taxonomy";
 import { apiClient } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
@@ -30,7 +30,7 @@ export const Route = createFileRoute("/map")({
 });
 
 function MapPage() {
-  const [allProblems, setAllProblems] = useState<Problem[]>([]);
+  const [allProblems, setAllProblems] = useState<Problem[]>(PROBLEMS);
   const [category, setCategory] = useState("all");
   const [tab, setTab] = useState<"map" | "list">("map");
 

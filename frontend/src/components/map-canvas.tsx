@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -7,6 +7,7 @@ import {
   useMap,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 import { Link } from "@tanstack/react-router";
 import { categoryLabel } from "@/data/taxonomy";
 import { timeAgo } from "@/data/problems";
@@ -23,24 +24,54 @@ function MapViewportManager({
   selectedId?: string | undefined;
 }) {
   const map = useMap();
+  const prevSelectedRef = useRef<string | undefined>(undefined);
 
+  // Invalidate size on mount and container resize so tiles never render gray
+  useEffect(() => {
+    if (!map) return;
+
+    // Initial resize calls
+    map.invalidateSize();
+    const t1 = setTimeout(() => map.invalidateSize(), 100);
+    const t2 = setTimeout(() => map.invalidateSize(), 400);
+
+    const container = map.getContainer();
+    let resizeObserver: ResizeObserver | null = null;
+    if (Boolean(globalThis.ResizeObserver) && container) {
+      resizeObserver = new ResizeObserver(() => {
+        map.invalidateSize();
+      });
+      resizeObserver.observe(container);
+    }
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
+  }, [map]);
+
+  // Adjust viewport based on selected problem or problem list
   useEffect(() => {
     if (!map) return;
 
     if (selectedId) {
       const selected = problems.find((p) => p.id === selectedId);
-      if (selected && selected.lat && selected.lng) {
+      if (selected && Number.isFinite(selected.lat) && Number.isFinite(selected.lng)) {
         map.flyTo([selected.lat, selected.lng], 13, {
           duration: 0.8,
           easeLinearity: 0.25,
         });
+        prevSelectedRef.current = selectedId;
         return;
       }
     }
 
     if (problems.length === 1 && problems[0]) {
       const p = problems[0];
-      if (p.lat && p.lng) {
+      if (Number.isFinite(p.lat) && Number.isFinite(p.lng)) {
         map.flyTo([p.lat, p.lng], 13, { duration: 0.8 });
         return;
       }
@@ -48,18 +79,25 @@ function MapViewportManager({
 
     if (problems.length > 1) {
       const validPoints = problems
-        .filter((p) => p.lat && p.lng)
+        .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng) && p.lat > 0 && p.lng > 0)
         .map((p): [number, number] => [p.lat, p.lng]);
 
       if (validPoints.length > 0) {
-        map.fitBounds(validPoints, {
-          padding: [40, 40],
-          maxZoom: 12,
-          animate: true,
-          duration: 0.6,
-        });
+        try {
+          const bounds = L.latLngBounds(validPoints.map(([lat, lng]) => [lat, lng]));
+          if (bounds.isValid()) {
+            map.fitBounds(bounds, {
+              padding: [40, 40],
+              maxZoom: 12,
+              animate: true,
+              duration: 0.6,
+            });
+          }
+        } catch {
+          map.setView(AP_DEFAULT_CENTER, AP_DEFAULT_ZOOM);
+        }
       }
-    } else {
+    } else if (!selectedId) {
       map.setView(AP_DEFAULT_CENTER, AP_DEFAULT_ZOOM);
     }
   }, [map, selectedId, problems]);
@@ -99,10 +137,11 @@ export default function MapCanvas({
       >
         <MapViewportManager problems={problems} selectedId={selectedId} />
 
-        {/* Direct Clean OpenStreetMap Tiles */}
+        {/* Resilient multi-subdomain OpenStreetMap tile layer */}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          subdomains={["a", "b", "c"]}
           maxZoom={19}
         />
 
@@ -121,7 +160,7 @@ export default function MapCanvas({
                 color: isSelected ? "#8E2800" : "#C65A3A",
                 weight: isSelected ? 3 : 2,
                 fillColor: isSelected ? "#C65A3A" : "#C65A3A",
-                fillOpacity: isSelected ? 0.75 : 0.45,
+                fillOpacity: isSelected ? 0.85 : 0.55,
               }}
             >
               <Popup className="ap-map-popup" autoPanPadding={[20, 20]}>

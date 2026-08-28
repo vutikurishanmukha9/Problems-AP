@@ -228,7 +228,7 @@
   font-family: var(--font-sans);
   background: var(--surface-2);
   outline: none;
-  z-index: 10;
+  z-index: 1;
 }
 
 .leaflet-control-zoom {

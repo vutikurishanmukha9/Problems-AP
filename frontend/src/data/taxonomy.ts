@@ -152,38 +152,40 @@ export interface DistrictInfo {
   readonly id: number;
   readonly name: string;
   readonly headquarters: string;
+  readonly lat: number;
+  readonly lng: number;
 }
 
-/** Complete directory of 28 Andhra Pradesh Districts with Headquarters */
+/** Complete directory of 28 Andhra Pradesh Districts with Headquarters and Geographic Coordinates */
 export const DISTRICTS_DATA: readonly DistrictInfo[] = [
-  { id: 1, name: "Alluri Sitharama Raju", headquarters: "Paderu" },
-  { id: 2, name: "Anakapalli", headquarters: "Anakapalli" },
-  { id: 3, name: "Ananthapuramu", headquarters: "Anantapur" },
-  { id: 4, name: "Annamayya", headquarters: "Rayachoti" },
-  { id: 5, name: "Bapatla", headquarters: "Bapatla" },
-  { id: 6, name: "Chittoor", headquarters: "Chittoor" },
-  { id: 7, name: "Dr. B. R. Ambedkar Konaseema", headquarters: "Amalapuram" },
-  { id: 8, name: "East Godavari", headquarters: "Rajamahendravaram" },
-  { id: 9, name: "Eluru", headquarters: "Eluru" },
-  { id: 10, name: "Guntur", headquarters: "Guntur" },
-  { id: 11, name: "Kakinada", headquarters: "Kakinada" },
-  { id: 12, name: "Krishna", headquarters: "Machilipatnam" },
-  { id: 13, name: "Kurnool", headquarters: "Kurnool" },
-  { id: 14, name: "Markapuram", headquarters: "Markapuram" },
-  { id: 15, name: "Nandyal", headquarters: "Nandyal" },
-  { id: 16, name: "NTR", headquarters: "Vijayawada" },
-  { id: 17, name: "Palnadu", headquarters: "Narasaraopet" },
-  { id: 18, name: "Parvathipuram Manyam", headquarters: "Parvathipuram" },
-  { id: 19, name: "Polavaram", headquarters: "Rampachodavaram" },
-  { id: 20, name: "Prakasam", headquarters: "Ongole" },
-  { id: 21, name: "Sri Potti Sriramulu Nellore", headquarters: "Nellore" },
-  { id: 22, name: "Sri Sathya Sai", headquarters: "Puttaparthi" },
-  { id: 23, name: "Srikakulam", headquarters: "Srikakulam" },
-  { id: 24, name: "Tirupati", headquarters: "Tirupati" },
-  { id: 25, name: "Visakhapatnam", headquarters: "Visakhapatnam" },
-  { id: 26, name: "Vizianagaram", headquarters: "Vizianagaram" },
-  { id: 27, name: "West Godavari", headquarters: "Bhimavaram" },
-  { id: 28, name: "Y.S.R. Kadapa", headquarters: "Kadapa" },
+  { id: 1, name: "Alluri Sitharama Raju", headquarters: "Paderu", lat: 18.0833, lng: 82.6667 },
+  { id: 2, name: "Anakapalli", headquarters: "Anakapalli", lat: 17.6913, lng: 83.0039 },
+  { id: 3, name: "Ananthapuramu", headquarters: "Anantapur", lat: 14.6819, lng: 77.6006 },
+  { id: 4, name: "Annamayya", headquarters: "Rayachoti", lat: 14.0560, lng: 78.7521 },
+  { id: 5, name: "Bapatla", headquarters: "Bapatla", lat: 15.9056, lng: 80.4674 },
+  { id: 6, name: "Chittoor", headquarters: "Chittoor", lat: 13.2172, lng: 79.1003 },
+  { id: 7, name: "Dr. B. R. Ambedkar Konaseema", headquarters: "Amalapuram", lat: 16.5787, lng: 82.0061 },
+  { id: 8, name: "East Godavari", headquarters: "Rajamahendravaram", lat: 17.0005, lng: 81.8040 },
+  { id: 9, name: "Eluru", headquarters: "Eluru", lat: 16.7107, lng: 81.0952 },
+  { id: 10, name: "Guntur", headquarters: "Guntur", lat: 16.3067, lng: 80.4365 },
+  { id: 11, name: "Kakinada", headquarters: "Kakinada", lat: 16.9891, lng: 82.2475 },
+  { id: 12, name: "Krishna", headquarters: "Machilipatnam", lat: 16.1875, lng: 81.1389 },
+  { id: 13, name: "Kurnool", headquarters: "Kurnool", lat: 15.8281, lng: 78.0373 },
+  { id: 14, name: "Markapuram", headquarters: "Markapuram", lat: 15.7350, lng: 79.2700 },
+  { id: 15, name: "Nandyal", headquarters: "Nandyal", lat: 15.4881, lng: 78.4836 },
+  { id: 16, name: "NTR", headquarters: "Vijayawada", lat: 16.5062, lng: 80.6480 },
+  { id: 17, name: "Palnadu", headquarters: "Narasaraopet", lat: 16.2359, lng: 80.0494 },
+  { id: 18, name: "Parvathipuram Manyam", headquarters: "Parvathipuram", lat: 18.7797, lng: 83.4287 },
+  { id: 19, name: "Polavaram", headquarters: "Rampachodavaram", lat: 17.4475, lng: 81.7767 },
+  { id: 20, name: "Prakasam", headquarters: "Ongole", lat: 15.5057, lng: 80.0499 },
+  { id: 21, name: "Sri Potti Sriramulu Nellore", headquarters: "Nellore", lat: 14.4426, lng: 79.9865 },
+  { id: 22, name: "Sri Sathya Sai", headquarters: "Puttaparthi", lat: 14.1652, lng: 77.8105 },
+  { id: 23, name: "Srikakulam", headquarters: "Srikakulam", lat: 18.2969, lng: 83.8968 },
+  { id: 24, name: "Tirupati", headquarters: "Tirupati", lat: 13.6288, lng: 79.4192 },
+  { id: 25, name: "Visakhapatnam", headquarters: "Visakhapatnam", lat: 17.6868, lng: 83.2185 },
+  { id: 26, name: "Vizianagaram", headquarters: "Vizianagaram", lat: 18.1124, lng: 83.3956 },
+  { id: 27, name: "West Godavari", headquarters: "Bhimavaram", lat: 16.5449, lng: 81.5212 },
+  { id: 28, name: "Y.S.R. Kadapa", headquarters: "Kadapa", lat: 14.4673, lng: 78.8242 },
 ] as const;
 
 export const DISTRICTS: string[] = DISTRICTS_DATA.map((d) => d.name);
@@ -195,6 +197,19 @@ export function getHeadquartersForDistrict(districtName: string): string | undef
     (d) => d.name.toLowerCase() === districtName.trim().toLowerCase(),
   );
   return match?.headquarters;
+}
+
+export interface GeoCoordinates {
+  readonly lat: number;
+  readonly lng: number;
+}
+
+export function getCoordinatesForDistrict(districtName?: string): GeoCoordinates {
+  if (!districtName) return { lat: 16.5, lng: 80.6 };
+  const match = DISTRICTS_DATA.find(
+    (d) => d.name.toLowerCase() === districtName.trim().toLowerCase(),
+  );
+  return match ? { lat: match.lat, lng: match.lng } : { lat: 16.5, lng: 80.6 };
 }
 
 export {

@@ -4,6 +4,7 @@ import {
   DISTRICTS_DATA,
   MINISTRIES_DATA,
   CATEGORIES,
+  getCoordinatesForDistrict,
   type StatusId,
 } from "@/data/taxonomy";
 
@@ -143,6 +144,21 @@ function mapBackendProblem(p: {
     ? parseDate(p.reported_at).toISOString()
     : new Date().toISOString();
 
+  // Resolve accurate geographic coordinates based on district if client GPS was unavailable
+  const defaultDistrictCoords = getCoordinatesForDistrict(p.district);
+  const rawLat = p.latitude;
+  const rawLng = p.longitude;
+  const isLatValid = rawLat !== undefined && rawLat !== null && Number.isFinite(rawLat) && rawLat > 0;
+  const isLngValid = rawLng !== undefined && rawLng !== null && Number.isFinite(rawLng) && rawLng > 0;
+
+  // Add deterministic sub-kilometer jitter for district-centered pins so they don't stack on 1 pixel
+  const charCodeSum = p.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const jitterLat = ((charCodeSum % 100) - 50) * 0.0008;
+  const jitterLng = (((charCodeSum * 7) % 100) - 50) * 0.0008;
+
+  const resolvedLat = isLatValid ? rawLat : defaultDistrictCoords.lat + jitterLat;
+  const resolvedLng = isLngValid ? rawLng : defaultDistrictCoords.lng + jitterLng;
+
   return {
     id: p.id,
     title: p.title,
@@ -152,8 +168,8 @@ function mapBackendProblem(p: {
     constituency: p.constituency ?? "General",
     district: p.district,
     area: p.area,
-    lat: p.latitude || 16.5,
-    lng: p.longitude || 80.6,
+    lat: resolvedLat,
+    lng: resolvedLng,
     reportedAt: normalizedReportedAt,
     status: parseStatus(p.status),
     reports: p.upvotes_count || 1,
