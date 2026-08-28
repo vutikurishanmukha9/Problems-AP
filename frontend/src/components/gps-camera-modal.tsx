@@ -362,26 +362,26 @@ export function GpsCameraModal({
       // Text Typography rendering
       ctx.textBaseline = "top";
 
-      // Line 1: 📍 Location & District
+      // Line 1: Location & District
       ctx.font = `bold ${titleFontSize}px "Plus Jakarta Sans", system-ui, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
       ctx.shadowColor = "rgba(0,0,0,0.8)";
       ctx.shadowBlur = 4;
-      const locText = `📍 ${locationTitle}`;
+      const locText = locationTitle;
       ctx.fillText(locText, paddingX, bannerTop + paddingY);
 
-      // Line 2: 🛰️ High-Precision Coordinates & Accuracy
+      // Line 2: High-Precision Coordinates & Accuracy
       ctx.font = `600 ${bodyFontSize}px "JetBrains Mono", monospace`;
       ctx.fillStyle = "#F1F5F9";
       const coordsText = currentCoords
-        ? `🛰️ ${lat.toFixed(6)}° N, ${lng.toFixed(6)}° E (±${accuracy}m accuracy)`
-        : `🛰️ ${district} (Approximate Regional Coordinates)`;
+        ? `GPS: ${lat.toFixed(6)}° N, ${lng.toFixed(6)}° E (±${accuracy}m accuracy)`
+        : `GPS: ${district} (Regional Coordinates)`;
       ctx.fillText(coordsText, paddingX, bannerTop + paddingY + titleFontSize + 8);
 
-      // Line 3: 📅 Indian Standard Time & Verification Seal
+      // Line 3: Indian Standard Time & Verification Seal
       ctx.font = `500 ${smallFontSize}px "Plus Jakarta Sans", system-ui, sans-serif`;
       ctx.fillStyle = "#CBD5E1";
-      const metaText = `📅 ${istTimeStr} IST  ·  🏛️ Problems@AP Citizen Evidence Stamp`;
+      const metaText = `${istTimeStr} IST  ·  Problems@AP Verified Evidence`;
       ctx.fillText(metaText, paddingX, bannerTop + paddingY + titleFontSize + bodyFontSize + 16);
 
       // Reset shadow

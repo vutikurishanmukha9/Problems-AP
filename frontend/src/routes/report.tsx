@@ -884,8 +884,8 @@ function ReportPage() {
                               className="size-12 rounded-lg border border-line object-cover"
                             />
                             {p.isGpsStamped && (
-                              <span className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full bg-ok text-white text-[0.5rem] font-bold">
-                                ✓
+                              <span className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full bg-ok text-white font-bold">
+                                <Check className="size-2.5" />
                               </span>
                             )}
                           </div>
