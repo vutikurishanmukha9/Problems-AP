@@ -14,7 +14,6 @@ import {
   ZapOff,
 } from "lucide-react";
 import { DISTRICTS_DATA } from "@/data/taxonomy";
-import { Button } from "@/components/ui-kit";
 
 export interface GpsCapturedPhoto {
   readonly file: File;
@@ -998,14 +997,13 @@ export function GpsCameraModal({
                   </div>
                   <h3 className="mt-4 text-lg font-bold text-white">Camera Access Denied</h3>
                   <p className="mt-2 max-w-sm text-xs text-slate-400">{errorMessage}</p>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="mt-5 text-white"
+                  <button
+                    type="button"
+                    className="mt-5 flex h-9 items-center justify-center rounded-lg border border-white/20 bg-white/15 px-4 text-xs font-semibold text-white transition-colors hover:bg-white/25 cursor-pointer"
                     onClick={handleClose}
                   >
                     Upload from Gallery Instead
-                  </Button>
+                  </button>
                 </div>
               )}
 
@@ -1017,14 +1015,13 @@ export function GpsCameraModal({
                   </div>
                   <h3 className="mt-4 text-lg font-bold text-white">Camera Unavailable</h3>
                   <p className="mt-2 max-w-sm text-xs text-slate-400">{errorMessage}</p>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="mt-5 text-white"
+                  <button
+                    type="button"
+                    className="mt-5 flex h-9 items-center justify-center rounded-lg border border-white/20 bg-white/15 px-4 text-xs font-semibold text-white transition-colors hover:bg-white/25 cursor-pointer"
                     onClick={handleClose}
                   >
                     Close Camera
-                  </Button>
+                  </button>
                 </div>
               )}
 
@@ -1143,26 +1140,22 @@ export function GpsCameraModal({
           {stampedPreview ? (
             /* Review Actions */
             <div className="flex w-full items-center justify-between gap-3">
-              <Button
+              <button
                 type="button"
-                variant="secondary"
-                size="md"
                 onClick={handleRetake}
-                className="flex items-center gap-1.5 text-white border-white/20 hover:bg-white/10"
+                className="flex h-10 items-center justify-center gap-2 rounded-lg border border-white/30 bg-white/15 px-5 text-sm font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/25 active:scale-[0.99] cursor-pointer"
               >
                 <RotateCcw className="size-4" />
                 Retake
-              </Button>
-              <Button
+              </button>
+              <button
                 type="button"
-                variant="primary"
-                size="md"
                 onClick={handleConfirmPhoto}
-                className="flex items-center gap-1.5 bg-ok hover:bg-ok/90 text-white font-bold"
+                className="flex h-10 items-center justify-center gap-2 rounded-lg bg-ok px-5 text-sm font-bold text-white shadow-md transition-colors hover:bg-ok/90 active:scale-[0.99] cursor-pointer"
               >
                 <Check className="size-4" />
                 Use Stamped Photo
-              </Button>
+              </button>
             </div>
           ) : cameraStatus === "ready" ? (
             /* Shutter Trigger Button with Dynamic Precision Glow */
@@ -1186,15 +1179,13 @@ export function GpsCameraModal({
             </div>
           ) : (
             <div className="flex w-full justify-end">
-              <Button
+              <button
                 type="button"
-                variant="secondary"
-                size="sm"
                 onClick={handleClose}
-                className="text-white"
+                className="flex h-9 items-center justify-center rounded-lg border border-white/25 bg-white/15 px-4 text-xs font-semibold text-white transition-colors hover:bg-white/25 cursor-pointer"
               >
                 Cancel
-              </Button>
+              </button>
             </div>
           )}
         </div>
