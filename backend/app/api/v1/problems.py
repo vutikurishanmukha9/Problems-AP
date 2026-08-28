@@ -1,3 +1,4 @@
+import asyncio
 import math
 import random
 import uuid
@@ -219,7 +220,9 @@ async def upload_evidence(
         )
 
     try:
-        image_url = upload_image_to_cloudinary(content, file.filename or "evidence.jpg")
+        image_url = await asyncio.to_thread(
+            upload_image_to_cloudinary, content, file.filename or "evidence.jpg"
+        )
         return EvidenceUploadResponse(
             success=True,
             image_url=image_url,
