@@ -13,7 +13,7 @@ import {
   Zap,
   ZapOff,
 } from "lucide-react";
-import { DISTRICTS_DATA } from "@/data/taxonomy";
+import { DISTRICTS_DATA, getDistrictForConstituency } from "@/data/taxonomy";
 
 export interface GpsCapturedPhoto {
   readonly file: File;
@@ -748,13 +748,22 @@ export function GpsCameraModal({
       const finalLng = lng ?? 0;
 
       const district = resolvedDistrictName || defaultDistrict || "Andhra Pradesh";
-      const constituency = defaultConstituency ? `${defaultConstituency} A.C.` : "";
+      const constituencyDistrict = defaultConstituency
+        ? getDistrictForConstituency(defaultConstituency)
+        : undefined;
+      const isMatchingConstituency =
+        !constituencyDistrict ||
+        constituencyDistrict.toLowerCase() === district.toLowerCase();
+      const constituencyLabel =
+        defaultConstituency && isMatchingConstituency
+          ? `${defaultConstituency} A.C.`
+          : "";
       const stampId = generateStampId();
       const plusCode = hasRealGps ? plusCodeString || encodePlusCode(finalLat, finalLng) : "";
 
       const locationTitle = resolvedLocationName
         ? `${resolvedLocationName}, ${district}`
-        : `${district}${constituency ? ` (${constituency})` : ""}`;
+        : `${district}${constituencyLabel ? ` (${constituencyLabel})` : ""}`;
       const nowIso = new Date().toISOString();
       const istTimeStr =
         clockString || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });

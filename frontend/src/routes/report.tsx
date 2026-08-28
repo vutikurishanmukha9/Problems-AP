@@ -234,8 +234,8 @@ function ReportPage() {
       },
     ]);
 
-    // Automatically sync coordinates to report location if not already locked
-    if (loc.kind !== "ok") {
+    // Authoritatively sync coordinates to report location from the GPS-stamped photo
+    if (stamped.isGpsStamped && stamped.lat !== 0 && stamped.lng !== 0) {
       setLoc({
         kind: "ok",
         lat: stamped.lat,
@@ -243,9 +243,9 @@ function ReportPage() {
         accuracy: stamped.accuracy,
         area: stamped.area,
       });
-    }
-    if (stamped.district) {
-      setDistrict(stamped.district);
+      if (stamped.district) {
+        setDistrict(stamped.district);
+      }
     }
   };
 
