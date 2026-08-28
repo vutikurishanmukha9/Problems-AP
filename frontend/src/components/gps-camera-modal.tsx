@@ -235,44 +235,85 @@ export function GpsCameraModal({
       setMediaStream(null);
 
       try {
-        // Enumerate video devices
+        // Enumerate video devices and sort back/rear cameras first
         let devices: MediaDeviceInfo[] = [];
         try {
           const allDevices = await navigator.mediaDevices.enumerateDevices();
-          devices = allDevices.filter((d) => d.kind === "videoinput");
+          const videoInputs = allDevices.filter((d) => d.kind === "videoinput");
+          // Sort back cameras first
+          devices = videoInputs.sort((a, b) => {
+            const aLabel = a.label.toLowerCase();
+            const bLabel = b.label.toLowerCase();
+            const aIsBack = aLabel.includes("back") || aLabel.includes("rear") || aLabel.includes("environment") || aLabel.includes("0");
+            const bIsBack = bLabel.includes("back") || bLabel.includes("rear") || bLabel.includes("environment") || bLabel.includes("0");
+            if (aIsBack && !bIsBack) return -1;
+            if (!aIsBack && bIsBack) return 1;
+            return 0;
+          });
           if (isSubscribed) setVideoDevices(devices);
         } catch {
           // Continue with default constraints
         }
 
-        const selectedDeviceId = devices[activeDeviceIndex]?.deviceId;
+        const isExplicitSelection = activeDeviceIndex > 0;
+        const selectedDeviceId = isExplicitSelection ? devices[activeDeviceIndex]?.deviceId : undefined;
 
         let stream: MediaStream | null = null;
 
-        // Attempt 1: High definition or device-specific
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: selectedDeviceId
-              ? { deviceId: { exact: selectedDeviceId } }
-              : {
+        // If user hasn't explicitly picked a specific camera index, prioritize rear/back camera
+        if (!selectedDeviceId) {
+          // Attempt 1: Strict back camera (facingMode: { exact: "environment" })
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: false,
+              video: {
+                facingMode: { exact: "environment" },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+              },
+            });
+          } catch {
+            // Attempt 2: Ideal environment back camera
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({
+                audio: false,
+                video: {
                   facingMode: { ideal: "environment" },
                   width: { ideal: 1920 },
                   height: { ideal: 1080 },
                 },
-          });
-        } catch {
-          // Attempt 2: Flexible facing mode
+              });
+            } catch {
+              // Attempt 3: Flexible facingMode environment
+              try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                  audio: false,
+                  video: { facingMode: "environment" },
+                });
+              } catch {
+                // Universal fallback
+                stream = await navigator.mediaDevices.getUserMedia({
+                  audio: false,
+                  video: true,
+                });
+              }
+            }
+          }
+        } else {
+          // User explicitly clicked Flip Camera to choose specific device
           try {
             stream = await navigator.mediaDevices.getUserMedia({
               audio: false,
-              video: { facingMode: { ideal: "environment" } },
+              video: {
+                deviceId: { exact: selectedDeviceId },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+              },
             });
           } catch {
-            // Attempt 3: Universal fallback
             stream = await navigator.mediaDevices.getUserMedia({
               audio: false,
-              video: true,
+              video: { deviceId: { exact: selectedDeviceId } },
             });
           }
         }
