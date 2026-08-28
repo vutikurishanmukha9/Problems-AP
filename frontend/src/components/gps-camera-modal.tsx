@@ -65,86 +65,9 @@ interface MediaTrackConstraintSetExtended extends MediaTrackConstraintSet {
   pointsOfInterest?: { x: number; y: number }[];
 }
 
-interface KalmanFilterResult {
-  readonly lat: number;
-  readonly lng: number;
-  readonly accuracy: number;
-  readonly samples: number;
-}
-
-/**
- * 2D Kalman Filter for GNSS Geolocation Smoothing
- * Filters out high-frequency GPS multipath noise and converges to sub-meter precision.
- */
-class GpsKalmanFilter {
-  private lat = 0;
-  private lng = 0;
-  private variance = -1;
-  private sampleCount = 0;
-  private minAccuracy = 999;
-
-  public process(
-    latMeasurement: number,
-    lngMeasurement: number,
-    accuracy: number,
-  ): KalmanFilterResult {
-    this.sampleCount += 1;
-    if (accuracy < this.minAccuracy) {
-      this.minAccuracy = accuracy;
-    }
-
-    const r = Math.max(1, accuracy * accuracy);
-
-    if (this.variance < 0) {
-      this.lat = latMeasurement;
-      this.lng = lngMeasurement;
-      this.variance = r;
-      const initialResult: KalmanFilterResult = {
-        lat: this.lat,
-        lng: this.lng,
-        accuracy: Math.round(accuracy),
-        samples: this.sampleCount,
-      };
-      return initialResult;
-    }
-
-    const q = 0.5; // Process noise
-    this.variance += q;
-
-    // Kalman Gain K = P / (P + R)
-    const k = this.variance / (this.variance + r);
-
-    // Update state estimate
-    this.lat += k * (latMeasurement - this.lat);
-    this.lng += k * (lngMeasurement - this.lng);
-
-    // Update error covariance P = (1 - K) * P
-    this.variance = (1 - k) * this.variance;
-
-    const estimatedAccuracy = Math.max(
-      1,
-      Math.min(this.minAccuracy, Math.round(Math.sqrt(this.variance))),
-    );
-
-    const stepResult: KalmanFilterResult = {
-      lat: this.lat,
-      lng: this.lng,
-      accuracy: estimatedAccuracy,
-      samples: this.sampleCount,
-    };
-    return stepResult;
-  }
-
-  public reset(): void {
-    this.variance = -1;
-    this.sampleCount = 0;
-    this.minAccuracy = 999;
-  }
-}
-
 /**
  * Open Location Code (Plus Code) Generator
- * Encodes latitude & longitude into a universal global 10-character cadastral address.
+ * Encodes real latitude & longitude into a universal global 10-character cadastral address.
  */
 const OLC_ALPHABET = "23456789CFGHJMPQRVWX";
 const LATITUDE_MAX = 90;
@@ -176,7 +99,6 @@ function encodePlusCode(latitude: number, longitude: number): string {
     if (i === 3) code += "+";
   }
 
-  // 10-digit high precision grid
   const gridLatRes = 0.0025 / 5;
   const gridLngRes = 0.0025 / 4;
   const latDigit = Math.min(4, Math.floor(latVal / gridLatRes));
@@ -243,7 +165,7 @@ export function GpsCameraModal({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const watchIdRef = useRef<number | null>(null);
-  const kalmanFilterRef = useRef<GpsKalmanFilter>(new GpsKalmanFilter());
+  const bestPositionRef = useRef<GeolocationPosition | null>(null);
 
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>("initializing");
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -261,13 +183,12 @@ export function GpsCameraModal({
   const [compassHeading, setCompassHeading] = useState<string | null>(null);
   const [deviceTilt, setDeviceTilt] = useState<{ gamma: number; beta: number } | null>(null);
 
-  // Live GPS Telemetry state
+  // Live GPS Telemetry state: Direct authentic hardware satellite reading
   const [gpsStatus, setGpsStatus] = useState<GpsStatus>("acquiring");
   const [currentCoords, setCurrentCoords] = useState<{
     lat: number;
     lng: number;
     accuracy: number;
-    samples: number;
     altitude?: number | undefined;
   } | null>(null);
   const [plusCodeString, setPlusCodeString] = useState<string>("");
@@ -358,7 +279,7 @@ export function GpsCameraModal({
     }
   }, [mediaStream, cameraStatus]);
 
-  // High-Precision Kalman-Filtered Multi-Sample GPS & Plus Code Engine
+  // Direct Authentic GPS Satellite Lock Pipeline
   useEffect(() => {
     if (!isOpen) return;
 
@@ -368,94 +289,111 @@ export function GpsCameraModal({
     }
 
     setGpsStatus("acquiring");
-    kalmanFilterRef.current.reset();
+    bestPositionRef.current = null;
 
-    const watchId = navigator.geolocation.watchPosition(
-      async (pos) => {
-        const { latitude, longitude, accuracy, altitude, heading } = pos.coords;
-        const roundedAcc = Math.round(accuracy);
+    // Helper to process a real GPS position fix
+    const processGpsFix = async (pos: GeolocationPosition) => {
+      const { latitude, longitude, accuracy, altitude, heading } = pos.coords;
+      const roundedAcc = Math.round(accuracy);
 
-        // Process through 2D Kalman Filter
-        const kalmanResult = kalmanFilterRef.current.process(
-          latitude,
-          longitude,
-          roundedAcc,
+      // Keep tracking the best satellite fix
+      if (!bestPositionRef.current || accuracy <= bestPositionRef.current.coords.accuracy) {
+        bestPositionRef.current = pos;
+      }
+
+      const currentAltitude = altitude !== null ? Math.round(altitude) : undefined;
+
+      // Update real coordinates directly from hardware GPS sensor
+      setCurrentCoords({
+        lat: latitude,
+        lng: longitude,
+        accuracy: roundedAcc,
+        altitude: currentAltitude,
+      });
+
+      // Calculate real Plus Code
+      const code = encodePlusCode(latitude, longitude);
+      setPlusCodeString(code);
+
+      if (heading !== null && heading !== undefined && !compassHeading) {
+        setCompassHeading(getCardinalDirection(heading));
+      }
+
+      setGpsStatus(roundedAcc <= 25 ? "locked" : "acquiring");
+
+      // Calculate nearest district from exact coordinates
+      const calculatedDistrict = findNearestDistrict(latitude, longitude);
+      setResolvedDistrictName(calculatedDistrict);
+
+      // Reverse geocode exact landmark & locality from OpenStreetMap
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3500);
+
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+          { headers: { "Accept-Language": "en" }, signal: controller.signal },
         );
+        clearTimeout(timeout);
 
-        const currentAltitude = altitude !== null ? Math.round(altitude) : undefined;
-        setCurrentCoords({
-          lat: kalmanResult.lat,
-          lng: kalmanResult.lng,
-          accuracy: kalmanResult.accuracy,
-          samples: kalmanResult.samples,
-          altitude: currentAltitude,
-        });
+        if (res.ok) {
+          const data = await res.json();
+          const addr = data.address;
+          const landmark =
+            addr?.amenity ||
+            addr?.building ||
+            addr?.landmark ||
+            addr?.leisure ||
+            addr?.tourism ||
+            addr?.shop ||
+            addr?.office ||
+            "";
+          const road = addr?.road || addr?.street || addr?.pedestrian || addr?.highway || "";
+          const locality =
+            addr?.suburb ||
+            addr?.neighbourhood ||
+            addr?.village ||
+            addr?.hamlet ||
+            addr?.town ||
+            addr?.city_district ||
+            addr?.city ||
+            "";
 
-        // Compute universal Plus Code
-        const generatedPlusCode = encodePlusCode(kalmanResult.lat, kalmanResult.lng);
-        setPlusCodeString(generatedPlusCode);
-
-        if (heading !== null && heading !== undefined && !compassHeading) {
-          setCompassHeading(getCardinalDirection(heading));
-        }
-
-        setGpsStatus(kalmanResult.accuracy <= 20 ? "locked" : "acquiring");
-
-        // Primary: Calculate nearest district mathematically from coordinates
-        const calculatedDistrict = findNearestDistrict(
-          kalmanResult.lat,
-          kalmanResult.lng,
-        );
-        setResolvedDistrictName(calculatedDistrict);
-
-        // Secondary: Enrich landmark, street and locality name via reverse geocode
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 3500);
-
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${kalmanResult.lat}&lon=${kalmanResult.lng}&zoom=19&addressdetails=1`,
-            { headers: { "Accept-Language": "en" }, signal: controller.signal },
-          );
-          clearTimeout(timeout);
-
-          if (res.ok) {
-            const data = await res.json();
-            const addr = data.address;
-            const landmark =
-              addr?.amenity ||
-              addr?.building ||
-              addr?.landmark ||
-              addr?.leisure ||
-              addr?.tourism ||
-              addr?.shop ||
-              addr?.office ||
-              "";
-            const road = addr?.road || addr?.street || addr?.pedestrian || addr?.highway || "";
-            const locality =
-              addr?.suburb ||
-              addr?.neighbourhood ||
-              addr?.village ||
-              addr?.hamlet ||
-              addr?.town ||
-              addr?.city_district ||
-              addr?.city ||
-              "";
-
-            const primaryParts = [landmark, road, locality].filter(Boolean);
-            if (primaryParts.length > 0) {
-              setResolvedLocationName(primaryParts.join(", "));
-            } else if (data.display_name) {
-              const dParts = data.display_name
-                .split(",")
-                .map((s: string) => s.trim())
-                .filter(Boolean);
-              setResolvedLocationName(dParts.slice(0, 2).join(", "));
-            }
+          const primaryParts = [landmark, road, locality].filter(Boolean);
+          if (primaryParts.length > 0) {
+            setResolvedLocationName(primaryParts.join(", "));
+          } else if (data.display_name) {
+            const dParts = data.display_name
+              .split(",")
+              .map((s: string) => s.trim())
+              .filter(Boolean);
+            setResolvedLocationName(dParts.slice(0, 2).join(", "));
           }
-        } catch {
-          // Fallback to local coordinate calculations
         }
+      } catch {
+        // Fallback to coordinates
+      }
+    };
+
+    // 1. One-shot immediate fix
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        void processGpsFix(pos);
+      },
+      () => {
+        // Ignore, watchPosition will continue
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 8000,
+      },
+    );
+
+    // 2. Continuous high accuracy watch
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        void processGpsFix(pos);
       },
       (err) => {
         if (err.code === err.PERMISSION_DENIED) {
@@ -736,7 +674,7 @@ export function GpsCameraModal({
     onClose();
   };
 
-  // Precision Capture Engine: Native Sensor Frame + Professional Canvas Geotag Watermarking
+  // Precision Capture Engine: Uses Pure Real GPS Fix
   const capturePhoto = async () => {
     if (!videoRef.current || isProcessing) return;
     setIsProcessing(true);
@@ -777,15 +715,43 @@ export function GpsCameraModal({
       // Draw the raw camera frame
       ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
 
-      // Metadata to stamp
-      const lat = currentCoords?.lat ?? 16.5;
-      const lng = currentCoords?.lng ?? 80.6;
-      const accuracy = currentCoords?.accuracy ?? 0;
-      const altitude = currentCoords?.altitude;
+      // Resolve final real-world coordinates from latest hardware GPS lock
+      let lat = currentCoords?.lat;
+      let lng = currentCoords?.lng;
+      let accuracy = currentCoords?.accuracy ?? 0;
+      let altitude = currentCoords?.altitude;
+
+      // If coordinates not yet received, attempt one quick synchronous GPS lock
+      if (lat === undefined || lng === undefined) {
+        try {
+          const quickPos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            if (!navigator.geolocation) {
+              reject(new Error("No geolocation"));
+              return;
+            }
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 4000,
+              maximumAge: 0,
+            });
+          });
+          lat = quickPos.coords.latitude;
+          lng = quickPos.coords.longitude;
+          accuracy = Math.round(quickPos.coords.accuracy);
+          altitude = quickPos.coords.altitude !== null ? Math.round(quickPos.coords.altitude) : undefined;
+        } catch {
+          // GPS unavailable
+        }
+      }
+
+      const hasRealGps = lat !== undefined && lng !== undefined;
+      const finalLat = lat ?? 0;
+      const finalLng = lng ?? 0;
+
       const district = resolvedDistrictName || defaultDistrict || "Andhra Pradesh";
       const constituency = defaultConstituency ? `${defaultConstituency} A.C.` : "";
       const stampId = generateStampId();
-      const plusCode = plusCodeString || encodePlusCode(lat, lng);
+      const plusCode = hasRealGps ? plusCodeString || encodePlusCode(finalLat, finalLng) : "";
 
       const locationTitle = resolvedLocationName
         ? `${resolvedLocationName}, ${district}`
@@ -831,25 +797,32 @@ export function GpsCameraModal({
       // Line 2: Precision GPS Coordinates, Accuracy, Altitude & Compass
       ctx.font = `600 ${bodyFontSize}px "JetBrains Mono", monospace`;
       ctx.fillStyle = "#F8FAFC";
-      const precisionGrade = accuracy <= 5 ? "Survey Grade" : accuracy <= 10 ? "High Precision" : "Standard";
-      const telemetryParts = [
-        `GPS: ${lat.toFixed(6)}° N, ${lng.toFixed(6)}° E (±${accuracy}m · ${precisionGrade})`,
-      ];
-      if (altitude !== undefined) {
-        telemetryParts.push(`Alt: ${altitude}m`);
+      let coordsText = "";
+      if (hasRealGps) {
+        const telemetryParts = [
+          `GPS: ${finalLat.toFixed(6)}° N, ${finalLng.toFixed(6)}° E (±${accuracy}m accuracy)`,
+        ];
+        if (altitude !== undefined) {
+          telemetryParts.push(`Alt: ${altitude}m`);
+        }
+        if (compassHeading) {
+          telemetryParts.push(`Facing: ${compassHeading}`);
+        }
+        coordsText = telemetryParts.join(" · ");
+      } else {
+        coordsText = `Location: ${district} · Manual District Assignment`;
       }
-      if (compassHeading) {
-        telemetryParts.push(`Facing: ${compassHeading}`);
-      }
-      const coordsText = currentCoords
-        ? telemetryParts.join(" · ")
-        : `GPS: ${district} (Regional Coordinates)`;
       ctx.fillText(coordsText, paddingX, bannerTop + paddingY + titleFontSize + 8);
 
       // Line 3: Cadastral Plus Code, Timestamp, Verification Stamp ID & Seal
       ctx.font = `500 ${smallFontSize}px "Plus Jakarta Sans", system-ui, sans-serif`;
       ctx.fillStyle = "#CBD5E1";
-      const metaText = `Plus Code: ${plusCode}  ·  ${istTimeStr} IST  ·  Ref: ${stampId}  ·  Problems@AP Verified Evidence`;
+      let metaText = "";
+      if (plusCode) {
+        metaText = `Plus Code: ${plusCode}  ·  ${istTimeStr} IST  ·  Ref: ${stampId}  ·  Problems@AP Verified Evidence`;
+      } else {
+        metaText = `${istTimeStr} IST  ·  Ref: ${stampId}  ·  Problems@AP Verified Evidence`;
+      }
       ctx.fillText(
         metaText,
         paddingX,
@@ -871,8 +844,8 @@ export function GpsCameraModal({
           setStampedPreview({
             file,
             previewUrl,
-            lat,
-            lng,
+            lat: finalLat,
+            lng: finalLng,
             accuracy,
             altitude,
             heading: compassHeading || undefined,
@@ -881,7 +854,7 @@ export function GpsCameraModal({
             district,
             capturedAt: nowIso,
             stampId,
-            isGpsStamped: true,
+            isGpsStamped: hasRealGps,
           });
           setIsProcessing(false);
         },
@@ -911,7 +884,7 @@ export function GpsCameraModal({
 
   const isLevel = deviceTilt ? Math.abs(deviceTilt.gamma) <= 3 : false;
   const accuracyMeters = currentCoords?.accuracy ?? 99;
-  const isHighPrecision = accuracyMeters <= 8;
+  const isHighPrecision = accuracyMeters <= 15;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-0 sm:p-4 backdrop-blur-md">
@@ -928,7 +901,7 @@ export function GpsCameraModal({
               <Camera className="size-4" />
             </span>
             <div>
-              <p className="text-xs font-bold tracking-tight">Civic Precision GPS Camera</p>
+              <p className="text-xs font-bold tracking-tight">Civic GPS Camera</p>
               <p className="text-[0.625rem] text-slate-300 font-mono">{clockString} IST</p>
             </div>
           </div>
@@ -986,7 +959,7 @@ export function GpsCameraModal({
               />
               <div className="absolute top-16 left-4 rounded-full bg-ok/90 px-3 py-1 text-xs font-bold text-white shadow-lg backdrop-blur-md flex items-center gap-1.5">
                 <Sparkles className="size-3.5" />
-                Verified Survey GPS Watermark
+                Verified GPS Watermark
               </div>
             </div>
           ) : (
@@ -1012,7 +985,7 @@ export function GpsCameraModal({
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black z-10">
                   <Loader2 className="size-8 animate-spin text-accent" />
                   <p className="text-xs font-semibold text-slate-300">
-                    Connecting rear camera sensor & satellite lock...
+                    Connecting camera & satellite lock...
                   </p>
                 </div>
               )}
@@ -1104,22 +1077,20 @@ export function GpsCameraModal({
                       <div className="flex items-center gap-2">
                         <span
                           className={`size-2.5 rounded-full animate-pulse ${
-                            accuracyMeters <= 5
+                            accuracyMeters <= 8
                               ? "bg-ok"
-                              : accuracyMeters <= 12
+                              : accuracyMeters <= 20
                                 ? "bg-emerald-400"
-                                : accuracyMeters <= 25
+                                : accuracyMeters <= 35
                                   ? "bg-amber-400"
                                   : "bg-red-400"
                           }`}
                         />
                         <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-slate-300">
                           {gpsStatus === "locked"
-                            ? accuracyMeters <= 5
-                              ? `🛰️ Survey-Grade Lock (±${accuracyMeters}m · ${currentCoords?.samples} fixes)`
-                              : `🛰️ Precision Satellite Lock (±${accuracyMeters}m · ${currentCoords?.samples} fixes)`
+                            ? `GPS Satellite Lock (±${accuracyMeters}m accuracy)`
                             : gpsStatus === "acquiring"
-                              ? `Acquiring Satellites (${currentCoords?.samples ?? 0} fixes)...`
+                              ? "Acquiring Precision Satellites..."
                               : "Location Unavailable (Manual District)"}
                         </span>
                       </div>
@@ -1205,7 +1176,7 @@ export function GpsCameraModal({
                     ? "border-ok/90 bg-ok/20 shadow-lg shadow-ok/30"
                     : "border-white/80 bg-white/20 shadow-lg shadow-white/10"
                 }`}
-                title="Capture Survey GPS Evidence Photo"
+                title="Capture GPS Evidence Photo"
               >
                 <span className="size-full rounded-full bg-white transition-colors group-hover:bg-slate-200" />
                 {isProcessing && (
