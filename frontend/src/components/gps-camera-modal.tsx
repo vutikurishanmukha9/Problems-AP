@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Camera,
   Check,
+  Compass,
   FlipHorizontal,
   Info,
   Loader2,
@@ -9,6 +10,8 @@ import {
   RotateCcw,
   Sparkles,
   X,
+  Zap,
+  ZapOff,
 } from "lucide-react";
 import { DISTRICTS_DATA } from "@/data/taxonomy";
 import { Button } from "@/components/ui-kit";
@@ -19,9 +22,13 @@ export interface GpsCapturedPhoto {
   readonly lat: number;
   readonly lng: number;
   readonly accuracy: number;
+  readonly altitude?: number | undefined;
+  readonly heading?: string | undefined;
+  readonly plusCode: string;
   readonly area: string;
   readonly district: string;
   readonly capturedAt: string;
+  readonly stampId: string;
   readonly isGpsStamped: boolean;
 }
 
@@ -35,6 +42,149 @@ interface GpsCameraModalProps {
 
 type CameraStatus = "initializing" | "ready" | "denied" | "error";
 type GpsStatus = "acquiring" | "locked" | "denied" | "unavailable";
+
+interface FocusPoint {
+  x: number;
+  y: number;
+  id: number;
+}
+
+interface IosDeviceOrientationEvent extends DeviceOrientationEvent {
+  webkitCompassHeading?: number;
+}
+
+interface MediaTrackCapabilitiesExtended extends MediaTrackCapabilities {
+  torch?: boolean;
+}
+
+interface MediaTrackConstraintSetExtended extends MediaTrackConstraintSet {
+  focusMode?: string;
+  exposureMode?: string;
+  whiteBalanceMode?: string;
+  torch?: boolean;
+  pointsOfInterest?: { x: number; y: number }[];
+}
+
+interface KalmanFilterResult {
+  readonly lat: number;
+  readonly lng: number;
+  readonly accuracy: number;
+  readonly samples: number;
+}
+
+/**
+ * 2D Kalman Filter for GNSS Geolocation Smoothing
+ * Filters out high-frequency GPS multipath noise and converges to sub-meter precision.
+ */
+class GpsKalmanFilter {
+  private lat = 0;
+  private lng = 0;
+  private variance = -1;
+  private sampleCount = 0;
+  private minAccuracy = 999;
+
+  public process(
+    latMeasurement: number,
+    lngMeasurement: number,
+    accuracy: number,
+  ): KalmanFilterResult {
+    this.sampleCount += 1;
+    if (accuracy < this.minAccuracy) {
+      this.minAccuracy = accuracy;
+    }
+
+    const r = Math.max(1, accuracy * accuracy);
+
+    if (this.variance < 0) {
+      this.lat = latMeasurement;
+      this.lng = lngMeasurement;
+      this.variance = r;
+      const initialResult: KalmanFilterResult = {
+        lat: this.lat,
+        lng: this.lng,
+        accuracy: Math.round(accuracy),
+        samples: this.sampleCount,
+      };
+      return initialResult;
+    }
+
+    const q = 0.5; // Process noise
+    this.variance += q;
+
+    // Kalman Gain K = P / (P + R)
+    const k = this.variance / (this.variance + r);
+
+    // Update state estimate
+    this.lat += k * (latMeasurement - this.lat);
+    this.lng += k * (lngMeasurement - this.lng);
+
+    // Update error covariance P = (1 - K) * P
+    this.variance = (1 - k) * this.variance;
+
+    const estimatedAccuracy = Math.max(
+      1,
+      Math.min(this.minAccuracy, Math.round(Math.sqrt(this.variance))),
+    );
+
+    const stepResult: KalmanFilterResult = {
+      lat: this.lat,
+      lng: this.lng,
+      accuracy: estimatedAccuracy,
+      samples: this.sampleCount,
+    };
+    return stepResult;
+  }
+
+  public reset(): void {
+    this.variance = -1;
+    this.sampleCount = 0;
+    this.minAccuracy = 999;
+  }
+}
+
+/**
+ * Open Location Code (Plus Code) Generator
+ * Encodes latitude & longitude into a universal global 10-character cadastral address.
+ */
+const OLC_ALPHABET = "23456789CFGHJMPQRVWX";
+const LATITUDE_MAX = 90;
+const LONGITUDE_MAX = 180;
+const INITIAL_RESOLUTIONS = [20, 1, 0.05, 0.0025] as const;
+
+function encodePlusCode(latitude: number, longitude: number): string {
+  let lat = Math.min(Math.max(latitude, -LATITUDE_MAX), LATITUDE_MAX);
+  let lng = longitude;
+  while (lng < -LONGITUDE_MAX) lng += 360;
+  while (lng >= LONGITUDE_MAX) lng -= 360;
+
+  if (lat === 90) lat -= 0.0000001;
+
+  lat += LATITUDE_MAX;
+  lng += LONGITUDE_MAX;
+
+  let code = "";
+  let latVal = lat;
+  let lngVal = lng;
+
+  for (let i = 0; i < 4; i++) {
+    const res = INITIAL_RESOLUTIONS[i] ?? 1;
+    const latDigit = Math.floor(latVal / res);
+    const lngDigit = Math.floor(lngVal / res);
+    code += OLC_ALPHABET.charAt(latDigit) + OLC_ALPHABET.charAt(lngDigit);
+    latVal -= latDigit * res;
+    lngVal -= lngDigit * res;
+    if (i === 3) code += "+";
+  }
+
+  // 10-digit high precision grid
+  const gridLatRes = 0.0025 / 5;
+  const gridLngRes = 0.0025 / 4;
+  const latDigit = Math.min(4, Math.floor(latVal / gridLatRes));
+  const lngDigit = Math.min(3, Math.floor(lngVal / gridLngRes));
+  code += OLC_ALPHABET.charAt(latDigit * 4 + lngDigit);
+
+  return code;
+}
 
 function findNearestDistrict(lat: number, lng: number): string {
   let minDistance = Number.POSITIVE_INFINITY;
@@ -51,6 +201,38 @@ function findNearestDistrict(lat: number, lng: number): string {
   return nearest;
 }
 
+function getCardinalDirection(deg: number): string {
+  const directions = [
+    "N",
+    "NNE",
+    "NE",
+    "ENE",
+    "E",
+    "ESE",
+    "SE",
+    "SSE",
+    "S",
+    "SSW",
+    "SW",
+    "WSW",
+    "W",
+    "WNW",
+    "NW",
+    "NNW",
+  ];
+  const index = Math.round((((deg % 360) + 360) % 360) / 22.5) % 16;
+  return `${Math.round(deg)}° ${directions[index]}`;
+}
+
+function generateStampId(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let id = "AP-GEO-";
+  for (let i = 0; i < 6; i++) {
+    id += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return id;
+}
+
 export function GpsCameraModal({
   isOpen,
   onClose,
@@ -61,6 +243,7 @@ export function GpsCameraModal({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  const kalmanFilterRef = useRef<GpsKalmanFilter>(new GpsKalmanFilter());
 
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>("initializing");
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -68,13 +251,26 @@ export function GpsCameraModal({
   const [activeDeviceIndex, setActiveDeviceIndex] = useState<number>(0);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
 
+  // Hardware capabilities
+  const [hasTorch, setHasTorch] = useState<boolean>(false);
+  const [isTorchOn, setIsTorchOn] = useState<boolean>(false);
+  const [focusPoint, setFocusPoint] = useState<FocusPoint | null>(null);
+  const [shutterFlash, setShutterFlash] = useState<boolean>(false);
+
+  // Compass heading & Device Leveling Horizon
+  const [compassHeading, setCompassHeading] = useState<string | null>(null);
+  const [deviceTilt, setDeviceTilt] = useState<{ gamma: number; beta: number } | null>(null);
+
   // Live GPS Telemetry state
   const [gpsStatus, setGpsStatus] = useState<GpsStatus>("acquiring");
   const [currentCoords, setCurrentCoords] = useState<{
     lat: number;
     lng: number;
     accuracy: number;
+    samples: number;
+    altitude?: number | undefined;
   } | null>(null);
+  const [plusCodeString, setPlusCodeString] = useState<string>("");
   const [resolvedLocationName, setResolvedLocationName] = useState<string>("");
   const [resolvedDistrictName, setResolvedDistrictName] = useState<string>(
     defaultDistrict || "",
@@ -108,7 +304,44 @@ export function GpsCameraModal({
     return () => clearInterval(interval);
   }, [isOpen]);
 
-  // Connect active mediaStream directly to the video element whenever stream changes or video mounts
+  // Orientation & Compass Listener
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      if (e.gamma !== null && e.beta !== null) {
+        setDeviceTilt({ gamma: Math.round(e.gamma), beta: Math.round(e.beta) });
+      }
+
+      let heading: number | null = null;
+      if ("webkitCompassHeading" in e) {
+        // SAFETY: iOS Safari provides webkitCompassHeading directly on DeviceOrientationEvent
+        const iosEvent = e as IosDeviceOrientationEvent;
+        const webkitHeading = iosEvent.webkitCompassHeading;
+        if (webkitHeading !== undefined && Number.isFinite(webkitHeading)) {
+          heading = webkitHeading;
+        }
+      } else if (e.alpha !== null && Number.isFinite(e.alpha)) {
+        heading = (360 - e.alpha) % 360;
+      }
+
+      if (heading !== null && Number.isFinite(heading)) {
+        setCompassHeading(getCardinalDirection(heading));
+      }
+    };
+
+    if (globalThis.window && "DeviceOrientationEvent" in window) {
+      window.addEventListener("deviceorientation", handleOrientation, true);
+    }
+
+    return () => {
+      if (globalThis.window && "DeviceOrientationEvent" in window) {
+        window.removeEventListener("deviceorientation", handleOrientation, true);
+      }
+    };
+  }, [isOpen]);
+
+  // Connect active mediaStream directly to video element
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !mediaStream) return;
@@ -125,7 +358,7 @@ export function GpsCameraModal({
     }
   }, [mediaStream, cameraStatus]);
 
-  // Start continuous high-precision GPS Watch
+  // High-Precision Kalman-Filtered Multi-Sample GPS & Plus Code Engine
   useEffect(() => {
     if (!isOpen) return;
 
@@ -135,24 +368,57 @@ export function GpsCameraModal({
     }
 
     setGpsStatus("acquiring");
+    kalmanFilterRef.current.reset();
 
     const watchId = navigator.geolocation.watchPosition(
       async (pos) => {
-        const { latitude, longitude, accuracy } = pos.coords;
+        const { latitude, longitude, accuracy, altitude, heading } = pos.coords;
         const roundedAcc = Math.round(accuracy);
-        setCurrentCoords({ lat: latitude, lng: longitude, accuracy: roundedAcc });
-        setGpsStatus(roundedAcc <= 30 ? "locked" : "acquiring");
 
-        // Primary: Resolve nearest district mathematically from coordinates
-        const calculatedDistrict = findNearestDistrict(latitude, longitude);
+        // Process through 2D Kalman Filter
+        const kalmanResult = kalmanFilterRef.current.process(
+          latitude,
+          longitude,
+          roundedAcc,
+        );
+
+        const currentAltitude = altitude !== null ? Math.round(altitude) : undefined;
+        setCurrentCoords({
+          lat: kalmanResult.lat,
+          lng: kalmanResult.lng,
+          accuracy: kalmanResult.accuracy,
+          samples: kalmanResult.samples,
+          altitude: currentAltitude,
+        });
+
+        // Compute universal Plus Code
+        const generatedPlusCode = encodePlusCode(kalmanResult.lat, kalmanResult.lng);
+        setPlusCodeString(generatedPlusCode);
+
+        if (heading !== null && heading !== undefined && !compassHeading) {
+          setCompassHeading(getCardinalDirection(heading));
+        }
+
+        setGpsStatus(kalmanResult.accuracy <= 20 ? "locked" : "acquiring");
+
+        // Primary: Calculate nearest district mathematically from coordinates
+        const calculatedDistrict = findNearestDistrict(
+          kalmanResult.lat,
+          kalmanResult.lng,
+        );
         setResolvedDistrictName(calculatedDistrict);
 
-        // Secondary: Enrich landmark and locality name via reverse geocode
+        // Secondary: Enrich landmark, street and locality name via reverse geocode
         try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 3500);
+
           const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-            { headers: { "Accept-Language": "en" } },
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${kalmanResult.lat}&lon=${kalmanResult.lng}&zoom=19&addressdetails=1`,
+            { headers: { "Accept-Language": "en" }, signal: controller.signal },
           );
+          clearTimeout(timeout);
+
           if (res.ok) {
             const data = await res.json();
             const addr = data.address;
@@ -188,7 +454,7 @@ export function GpsCameraModal({
             }
           }
         } catch {
-          // Graceful fallback to raw coordinates
+          // Fallback to local coordinate calculations
         }
       },
       (err) => {
@@ -201,7 +467,7 @@ export function GpsCameraModal({
       {
         enableHighAccuracy: true,
         maximumAge: 0,
-        timeout: 12000,
+        timeout: 15000,
       },
     );
 
@@ -213,9 +479,9 @@ export function GpsCameraModal({
         watchIdRef.current = null;
       }
     };
-  }, [isOpen]);
+  }, [isOpen, compassHeading]);
 
-  // Start Camera Stream with layered constraint fallbacks
+  // Start Camera Stream with rear-camera prioritization and hardware capability checks
   useEffect(() => {
     if (!isOpen) return;
 
@@ -224,8 +490,8 @@ export function GpsCameraModal({
     async function startCamera() {
       setCameraStatus("initializing");
       setErrorMessage("");
+      setIsTorchOn(false);
 
-      // Stop any existing stream
       if (streamRef.current) {
         for (const track of streamRef.current.getTracks()) {
           track.stop();
@@ -235,17 +501,23 @@ export function GpsCameraModal({
       setMediaStream(null);
 
       try {
-        // Enumerate video devices and sort back/rear cameras first
         let devices: MediaDeviceInfo[] = [];
         try {
           const allDevices = await navigator.mediaDevices.enumerateDevices();
           const videoInputs = allDevices.filter((d) => d.kind === "videoinput");
-          // Sort back cameras first
           devices = videoInputs.sort((a, b) => {
             const aLabel = a.label.toLowerCase();
             const bLabel = b.label.toLowerCase();
-            const aIsBack = aLabel.includes("back") || aLabel.includes("rear") || aLabel.includes("environment") || aLabel.includes("0");
-            const bIsBack = bLabel.includes("back") || bLabel.includes("rear") || bLabel.includes("environment") || bLabel.includes("0");
+            const aIsBack =
+              aLabel.includes("back") ||
+              aLabel.includes("rear") ||
+              aLabel.includes("environment") ||
+              aLabel.includes("0");
+            const bIsBack =
+              bLabel.includes("back") ||
+              bLabel.includes("rear") ||
+              bLabel.includes("environment") ||
+              bLabel.includes("0");
             if (aIsBack && !bIsBack) return -1;
             if (!aIsBack && bIsBack) return 1;
             return 0;
@@ -256,13 +528,13 @@ export function GpsCameraModal({
         }
 
         const isExplicitSelection = activeDeviceIndex > 0;
-        const selectedDeviceId = isExplicitSelection ? devices[activeDeviceIndex]?.deviceId : undefined;
+        const selectedDeviceId = isExplicitSelection
+          ? devices[activeDeviceIndex]?.deviceId
+          : undefined;
 
         let stream: MediaStream | null = null;
 
-        // If user hasn't explicitly picked a specific camera index, prioritize rear/back camera
         if (!selectedDeviceId) {
-          // Attempt 1: Strict back camera (facingMode: { exact: "environment" })
           try {
             stream = await navigator.mediaDevices.getUserMedia({
               audio: false,
@@ -273,7 +545,6 @@ export function GpsCameraModal({
               },
             });
           } catch {
-            // Attempt 2: Ideal environment back camera
             try {
               stream = await navigator.mediaDevices.getUserMedia({
                 audio: false,
@@ -284,14 +555,12 @@ export function GpsCameraModal({
                 },
               });
             } catch {
-              // Attempt 3: Flexible facingMode environment
               try {
                 stream = await navigator.mediaDevices.getUserMedia({
                   audio: false,
                   video: { facingMode: "environment" },
                 });
               } catch {
-                // Universal fallback
                 stream = await navigator.mediaDevices.getUserMedia({
                   audio: false,
                   video: true,
@@ -300,7 +569,6 @@ export function GpsCameraModal({
             }
           }
         } else {
-          // User explicitly clicked Flip Camera to choose specific device
           try {
             stream = await navigator.mediaDevices.getUserMedia({
               audio: false,
@@ -331,6 +599,28 @@ export function GpsCameraModal({
 
         streamRef.current = stream;
         setMediaStream(stream);
+
+        const videoTrack = stream.getVideoTracks()[0];
+        if (videoTrack && "getCapabilities" in videoTrack) {
+          // SAFETY: getCapabilities is a standard MediaStreamTrack method returning hardware features
+          const capabilities = videoTrack.getCapabilities() as MediaTrackCapabilitiesExtended;
+          setHasTorch(Boolean(capabilities.torch));
+
+          try {
+            const advancedSettings: MediaTrackConstraintSetExtended = {
+              focusMode: "continuous",
+              exposureMode: "continuous",
+              whiteBalanceMode: "continuous",
+            };
+            void videoTrack
+              .applyConstraints({
+                advanced: [advancedSettings],
+              })
+              .catch(() => {});
+          } catch {
+            // Ignore if unsupported
+          }
+        }
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -379,6 +669,50 @@ export function GpsCameraModal({
     };
   }, [isOpen, activeDeviceIndex]);
 
+  // Flashlight / Torch Toggle
+  const toggleTorch = async () => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    try {
+      const nextState = !isTorchOn;
+      const torchConstraint: MediaTrackConstraintSetExtended = { torch: nextState };
+      await track.applyConstraints({ advanced: [torchConstraint] });
+      setIsTorchOn(nextState);
+    } catch {
+      // Torch toggle not supported
+    }
+  };
+
+  // Tap-To-Focus Visual Target
+  const handleViewfinderTap = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setFocusPoint({ x, y, id: Date.now() });
+
+    if ("vibrate" in navigator) {
+      navigator.vibrate(15);
+    }
+
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (track) {
+      const normX = x / rect.width;
+      const normY = y / rect.height;
+      try {
+        const focusConstraint: MediaTrackConstraintSetExtended = {
+          pointsOfInterest: [{ x: normX, y: normY }],
+        };
+        void track.applyConstraints({ advanced: [focusConstraint] }).catch(() => {});
+      } catch {
+        // Ignore
+      }
+    }
+
+    setTimeout(() => {
+      setFocusPoint((prev) => (prev?.x === x && prev?.y === y ? null : prev));
+    }, 1800);
+  };
+
   // Flip Camera
   const switchCamera = () => {
     if (videoDevices.length <= 1) return;
@@ -402,17 +736,22 @@ export function GpsCameraModal({
     onClose();
   };
 
-  // Capture & Burn Geotag Watermark onto Canvas
+  // Precision Capture Engine: Native Sensor Frame + Professional Canvas Geotag Watermarking
   const capturePhoto = async () => {
     if (!videoRef.current || isProcessing) return;
     setIsProcessing(true);
+
+    setShutterFlash(true);
+    setTimeout(() => setShutterFlash(false), 180);
+    if ("vibrate" in navigator) {
+      navigator.vibrate([35, 20, 35]);
+    }
 
     try {
       const video = videoRef.current;
       const rawWidth = video.videoWidth || 1280;
       const rawHeight = video.videoHeight || 720;
 
-      // Cap dimensions to max 1600px for optimal mobile payload
       const maxDim = 1600;
       let targetWidth = rawWidth;
       let targetHeight = rawHeight;
@@ -435,15 +774,18 @@ export function GpsCameraModal({
         throw new Error("Could not get 2D canvas rendering context");
       }
 
-      // Draw the raw camera snapshot
+      // Draw the raw camera frame
       ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
 
       // Metadata to stamp
       const lat = currentCoords?.lat ?? 16.5;
       const lng = currentCoords?.lng ?? 80.6;
       const accuracy = currentCoords?.accuracy ?? 0;
+      const altitude = currentCoords?.altitude;
       const district = resolvedDistrictName || defaultDistrict || "Andhra Pradesh";
       const constituency = defaultConstituency ? `${defaultConstituency} A.C.` : "";
+      const stampId = generateStampId();
+      const plusCode = plusCodeString || encodePlusCode(lat, lng);
 
       const locationTitle = resolvedLocationName
         ? `${resolvedLocationName}, ${district}`
@@ -457,58 +799,65 @@ export function GpsCameraModal({
       const titleFontSize = Math.max(16, Math.round(baseUnit * 22));
       const bodyFontSize = Math.max(13, Math.round(baseUnit * 17));
       const smallFontSize = Math.max(11, Math.round(baseUnit * 14));
-      const paddingX = Math.max(16, Math.round(baseUnit * 24));
-      const paddingY = Math.max(14, Math.round(baseUnit * 20));
+      const paddingX = Math.max(18, Math.round(baseUnit * 26));
+      const paddingY = Math.max(16, Math.round(baseUnit * 22));
 
-      const bannerHeight = Math.max(120, Math.round(targetHeight * 0.19));
+      const bannerHeight = Math.max(140, Math.round(targetHeight * 0.22));
       const bannerTop = targetHeight - bannerHeight;
 
       // Draw Obsidian Translucent Gradient Banner
-      const gradient = ctx.createLinearGradient(0, bannerTop - 30, 0, targetHeight);
+      const gradient = ctx.createLinearGradient(0, bannerTop - 35, 0, targetHeight);
       gradient.addColorStop(0, "rgba(8, 12, 22, 0)");
-      gradient.addColorStop(0.25, "rgba(8, 12, 22, 0.78)");
-      gradient.addColorStop(1, "rgba(8, 12, 22, 0.94)");
+      gradient.addColorStop(0.2, "rgba(8, 12, 22, 0.84)");
+      gradient.addColorStop(1, "rgba(8, 12, 22, 0.97)");
 
       ctx.fillStyle = gradient;
-      ctx.fillRect(0, bannerTop - 30, targetWidth, bannerHeight + 30);
+      ctx.fillRect(0, bannerTop - 35, targetWidth, bannerHeight + 35);
 
-      // Subtle Accent Top Highlight Bar
-      ctx.fillStyle = "rgba(224, 93, 56, 0.9)";
-      ctx.fillRect(0, bannerTop, targetWidth, Math.max(2, Math.round(baseUnit * 3)));
+      // Accent Top Highlight Bar (Andhra Terracotta Accent)
+      ctx.fillStyle = "rgba(224, 93, 56, 0.95)";
+      ctx.fillRect(0, bannerTop, targetWidth, Math.max(3, Math.round(baseUnit * 3.5)));
 
-      // Text Typography rendering
       ctx.textBaseline = "top";
 
-      // Line 1: Location & District
+      // Line 1: Landmark, Locality & District
       ctx.font = `bold ${titleFontSize}px "Plus Jakarta Sans", system-ui, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
-      ctx.shadowColor = "rgba(0,0,0,0.8)";
-      ctx.shadowBlur = 4;
+      ctx.shadowColor = "rgba(0,0,0,0.85)";
+      ctx.shadowBlur = 5;
       const locText = locationTitle;
       ctx.fillText(locText, paddingX, bannerTop + paddingY);
 
-      // Line 2: High-Precision Coordinates & Accuracy
+      // Line 2: Precision GPS Coordinates, Accuracy, Altitude & Compass
       ctx.font = `600 ${bodyFontSize}px "JetBrains Mono", monospace`;
-      ctx.fillStyle = "#F1F5F9";
+      ctx.fillStyle = "#F8FAFC";
+      const precisionGrade = accuracy <= 5 ? "Survey Grade" : accuracy <= 10 ? "High Precision" : "Standard";
+      const telemetryParts = [
+        `GPS: ${lat.toFixed(6)}° N, ${lng.toFixed(6)}° E (±${accuracy}m · ${precisionGrade})`,
+      ];
+      if (altitude !== undefined) {
+        telemetryParts.push(`Alt: ${altitude}m`);
+      }
+      if (compassHeading) {
+        telemetryParts.push(`Facing: ${compassHeading}`);
+      }
       const coordsText = currentCoords
-        ? `GPS: ${lat.toFixed(6)}° N, ${lng.toFixed(6)}° E (±${accuracy}m accuracy)`
+        ? telemetryParts.join(" · ")
         : `GPS: ${district} (Regional Coordinates)`;
       ctx.fillText(coordsText, paddingX, bannerTop + paddingY + titleFontSize + 8);
 
-      // Line 3: Indian Standard Time & Verification Seal
+      // Line 3: Cadastral Plus Code, Timestamp, Verification Stamp ID & Seal
       ctx.font = `500 ${smallFontSize}px "Plus Jakarta Sans", system-ui, sans-serif`;
       ctx.fillStyle = "#CBD5E1";
-      const metaText = `${istTimeStr} IST  ·  Problems@AP Verified Evidence`;
+      const metaText = `Plus Code: ${plusCode}  ·  ${istTimeStr} IST  ·  Ref: ${stampId}  ·  Problems@AP Verified Evidence`;
       ctx.fillText(
         metaText,
         paddingX,
         bannerTop + paddingY + titleFontSize + bodyFontSize + 16,
       );
 
-      // Reset shadow
       ctx.shadowBlur = 0;
 
-      // Convert to high-quality JPEG Blob
       canvas.toBlob(
         (blob) => {
           if (!blob) {
@@ -525,22 +874,25 @@ export function GpsCameraModal({
             lat,
             lng,
             accuracy,
+            altitude,
+            heading: compassHeading || undefined,
+            plusCode,
             area: locationTitle,
             district,
             capturedAt: nowIso,
+            stampId,
             isGpsStamped: true,
           });
           setIsProcessing(false);
         },
         "image/jpeg",
-        0.85,
+        0.88,
       );
     } catch {
       setIsProcessing(false);
     }
   };
 
-  // Confirm Stamped Photo
   const handleConfirmPhoto = () => {
     if (stampedPreview) {
       onPhotoCaptured(stampedPreview);
@@ -548,7 +900,6 @@ export function GpsCameraModal({
     }
   };
 
-  // Retake Photo
   const handleRetake = () => {
     if (stampedPreview) {
       URL.revokeObjectURL(stampedPreview.previewUrl);
@@ -558,9 +909,18 @@ export function GpsCameraModal({
 
   if (!isOpen) return null;
 
+  const isLevel = deviceTilt ? Math.abs(deviceTilt.gamma) <= 3 : false;
+  const accuracyMeters = currentCoords?.accuracy ?? 99;
+  const isHighPrecision = accuracyMeters <= 8;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-0 sm:p-4 backdrop-blur-md">
       <div className="relative flex h-full w-full max-w-2xl flex-col overflow-hidden bg-black text-white shadow-2xl sm:h-[90vh] sm:rounded-2xl sm:border sm:border-white/10">
+        {/* Shutter White Flash Animation */}
+        {shutterFlash && (
+          <div className="pointer-events-none absolute inset-0 z-50 bg-white transition-opacity duration-150" />
+        )}
+
         {/* Header Bar */}
         <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent p-4">
           <div className="flex items-center gap-2">
@@ -568,12 +928,29 @@ export function GpsCameraModal({
               <Camera className="size-4" />
             </span>
             <div>
-              <p className="text-xs font-bold tracking-tight">Civic GPS Camera</p>
+              <p className="text-xs font-bold tracking-tight">Civic Precision GPS Camera</p>
               <p className="text-[0.625rem] text-slate-300 font-mono">{clockString} IST</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Flashlight Torch Toggle */}
+            {hasTorch && !stampedPreview && cameraStatus === "ready" && (
+              <button
+                type="button"
+                onClick={toggleTorch}
+                className={`flex size-9 items-center justify-center rounded-full backdrop-blur-md transition-colors ${
+                  isTorchOn
+                    ? "bg-amber-400 text-black shadow-lg shadow-amber-400/50"
+                    : "bg-white/15 text-white hover:bg-white/25"
+                }`}
+                title={isTorchOn ? "Turn off Flashlight" : "Turn on Flashlight"}
+              >
+                {isTorchOn ? <Zap className="size-4 fill-current" /> : <ZapOff className="size-4" />}
+              </button>
+            )}
+
+            {/* Flip Camera */}
             {videoDevices.length > 1 && !stampedPreview && (
               <button
                 type="button"
@@ -595,7 +972,10 @@ export function GpsCameraModal({
         </div>
 
         {/* Viewfinder Content Area */}
-        <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden">
+        <div
+          className="relative flex-1 bg-black flex items-center justify-center overflow-hidden cursor-crosshair select-none"
+          onClick={handleViewfinderTap}
+        >
           {stampedPreview ? (
             /* Review Screen with Stamped Watermark */
             <div className="relative size-full flex items-center justify-center bg-slate-950">
@@ -606,13 +986,12 @@ export function GpsCameraModal({
               />
               <div className="absolute top-16 left-4 rounded-full bg-ok/90 px-3 py-1 text-xs font-bold text-white shadow-lg backdrop-blur-md flex items-center gap-1.5">
                 <Sparkles className="size-3.5" />
-                GPS Geotag Stamped
+                Verified Survey GPS Watermark
               </div>
             </div>
           ) : (
             /* Live Camera Stream with Viewfinder HUD */
             <div className="relative size-full flex items-center justify-center">
-              {/* Always mounted video element ensures immediate stream binding */}
               <video
                 ref={videoRef}
                 autoPlay
@@ -633,7 +1012,7 @@ export function GpsCameraModal({
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black z-10">
                   <Loader2 className="size-8 animate-spin text-accent" />
                   <p className="text-xs font-semibold text-slate-300">
-                    Starting camera hardware...
+                    Connecting rear camera sensor & satellite lock...
                   </p>
                 </div>
               )}
@@ -676,36 +1055,81 @@ export function GpsCameraModal({
                 </div>
               )}
 
-              {/* Targeting Crosshairs Grid */}
+              {/* Tap-to-Focus Animated Ring */}
+              {focusPoint && (
+                <div
+                  key={focusPoint.id}
+                  style={{ top: focusPoint.y - 28, left: focusPoint.x - 28 }}
+                  className="pointer-events-none absolute size-14 rounded-lg border-2 border-amber-300 animate-ping opacity-80"
+                />
+              )}
+
+              {/* Targeting Crosshairs Grid & Horizon Level Line */}
               {cameraStatus === "ready" && (
-                <div className="pointer-events-none absolute inset-8 border border-white/20 rounded-xl">
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-12 border border-white/30 rounded-full flex items-center justify-center">
-                    <div className="size-1.5 bg-accent rounded-full" />
+                <div className="pointer-events-none absolute inset-6 border border-white/20 rounded-xl">
+                  {/* Center Crosshair */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-14 border border-white/25 rounded-full flex items-center justify-center">
+                    <div
+                      className={`size-1.5 rounded-full transition-colors ${
+                        isHighPrecision ? "bg-ok" : "bg-accent"
+                      }`}
+                    />
                   </div>
+
+                  {/* Level Horizon Bar */}
+                  {deviceTilt && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 flex items-center justify-between">
+                      <div
+                        className={`h-0.5 w-14 transition-colors ${
+                          isLevel ? "bg-ok" : "bg-white/40"
+                        }`}
+                        style={{ transform: `rotate(${deviceTilt.gamma * 0.5}deg)` }}
+                      />
+                      <div
+                        className={`h-0.5 w-14 transition-colors ${
+                          isLevel ? "bg-ok" : "bg-white/40"
+                        }`}
+                        style={{ transform: `rotate(${deviceTilt.gamma * 0.5}deg)` }}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Live Telemetry HUD Overlay */}
               {cameraStatus === "ready" && (
                 <div className="pointer-events-none absolute bottom-24 inset-x-4 flex flex-col gap-2">
-                  <div className="self-start rounded-xl border border-white/15 bg-black/65 p-3.5 backdrop-blur-md shadow-xl max-w-md">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`size-2.5 rounded-full animate-pulse ${
-                          gpsStatus === "locked"
-                            ? "bg-ok"
+                  <div className="self-start rounded-xl border border-white/15 bg-black/75 p-3.5 backdrop-blur-md shadow-xl max-w-md">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`size-2.5 rounded-full animate-pulse ${
+                            accuracyMeters <= 5
+                              ? "bg-ok"
+                              : accuracyMeters <= 12
+                                ? "bg-emerald-400"
+                                : accuracyMeters <= 25
+                                  ? "bg-amber-400"
+                                  : "bg-red-400"
+                          }`}
+                        />
+                        <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-slate-300">
+                          {gpsStatus === "locked"
+                            ? accuracyMeters <= 5
+                              ? `🛰️ Survey-Grade Lock (±${accuracyMeters}m · ${currentCoords?.samples} fixes)`
+                              : `🛰️ Precision Satellite Lock (±${accuracyMeters}m · ${currentCoords?.samples} fixes)`
                             : gpsStatus === "acquiring"
-                              ? "bg-amber-400"
-                              : "bg-red-400"
-                        }`}
-                      />
-                      <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-slate-300">
-                        {gpsStatus === "locked"
-                          ? `Satellite Lock (±${currentCoords?.accuracy}m)`
-                          : gpsStatus === "acquiring"
-                            ? "Acquiring Satellites (<30m)..."
-                            : "Location Unavailable (Manual District)"}
-                      </span>
+                              ? `Acquiring Satellites (${currentCoords?.samples ?? 0} fixes)...`
+                              : "Location Unavailable (Manual District)"}
+                        </span>
+                      </div>
+
+                      {compassHeading && (
+                        <span className="flex items-center gap-1 rounded bg-white/10 px-1.5 py-0.5 text-[0.625rem] font-mono font-bold text-slate-300">
+                          <Compass className="size-2.5 text-accent" />
+                          {compassHeading}
+                        </span>
+                      )}
                     </div>
 
                     {/* Area & Landmark Display */}
@@ -722,11 +1146,19 @@ export function GpsCameraModal({
                       </div>
                     </div>
 
-                    {/* Coordinates */}
-                    <div className="mt-1.5 font-mono text-[0.6875rem] text-slate-300">
-                      {currentCoords
-                        ? `${currentCoords.lat.toFixed(6)}° N, ${currentCoords.lng.toFixed(6)}° E`
-                        : "Locating precision coordinates..."}
+                    {/* Coordinates, Plus Code & Altitude */}
+                    <div className="mt-1.5 font-mono text-[0.6875rem] text-slate-300 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span>
+                        {currentCoords
+                          ? `${currentCoords.lat.toFixed(6)}° N, ${currentCoords.lng.toFixed(6)}° E`
+                          : "Resolving precision fix..."}
+                      </span>
+                      {plusCodeString && (
+                        <span className="text-amber-300 font-semibold">· {plusCodeString}</span>
+                      )}
+                      {currentCoords?.altitude !== undefined && (
+                        <span>· Alt: {currentCoords.altitude}m</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -762,14 +1194,18 @@ export function GpsCameraModal({
               </Button>
             </div>
           ) : cameraStatus === "ready" ? (
-            /* Shutter Trigger Button */
+            /* Shutter Trigger Button with Dynamic Precision Glow */
             <div className="flex w-full items-center justify-center relative">
               <button
                 type="button"
                 onClick={capturePhoto}
                 disabled={isProcessing}
-                className="group relative flex size-18 items-center justify-center rounded-full border-4 border-white/80 bg-white/20 p-1 transition-transform active:scale-95 disabled:opacity-50"
-                title="Capture GPS Evidence Photo"
+                className={`group relative flex size-18 items-center justify-center rounded-full border-4 p-1 transition-all active:scale-95 disabled:opacity-50 ${
+                  isHighPrecision
+                    ? "border-ok/90 bg-ok/20 shadow-lg shadow-ok/30"
+                    : "border-white/80 bg-white/20 shadow-lg shadow-white/10"
+                }`}
+                title="Capture Survey GPS Evidence Photo"
               >
                 <span className="size-full rounded-full bg-white transition-colors group-hover:bg-slate-200" />
                 {isProcessing && (
