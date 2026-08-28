@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode, type ChangeEvent } from "react";
-import { Camera, Check, Clock, Copy, Loader2, MapPin, X } from "lucide-react";
+import { Camera, Check, Copy, Loader2, MapPin, Sparkles, X } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { Button, ButtonLink } from "@/components/ui-kit";
@@ -16,6 +16,7 @@ import {
 import { getMLAForConstituency } from "@/data/constituencies";
 import { formatDateTime } from "@/data/problems";
 import { ProblemMap } from "@/components/problem-map";
+import { GpsCameraModal, type GpsCapturedPhoto } from "@/components/gps-camera-modal";
 import { apiClient } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
@@ -55,7 +56,10 @@ function ReportPage() {
   const [district, setDistrict] = useState("Visakhapatnam");
   const [manualArea, setManualArea] = useState("");
   const [loc, setLoc] = useState<LocState>({ kind: "idle" });
-  const [photos, setPhotos] = useState<{ url: string; name: string; file?: File }[]>([]);
+  const [photos, setPhotos] = useState<
+    { url: string; name: string; file?: File; isGpsStamped?: boolean }[]
+  >([]);
+  const [isGpsCameraOpen, setIsGpsCameraOpen] = useState(false);
   const [submitted, setSubmitted] = useState<{ ref: string; token?: string; at: string } | null>(
     null,
   );
@@ -217,6 +221,32 @@ function ReportPage() {
       .slice(0, 4 - photos.length)
       .map((f) => ({ url: URL.createObjectURL(f), name: f.name, file: f }));
     setPhotos((p) => [...p, ...next]);
+  };
+
+  const handleGpsPhotoCaptured = (stamped: GpsCapturedPhoto) => {
+    setPhotos((prev) => [
+      ...prev.slice(0, 3),
+      {
+        url: stamped.previewUrl,
+        name: stamped.file.name,
+        file: stamped.file,
+        isGpsStamped: true,
+      },
+    ]);
+
+    // Automatically sync coordinates to report location if not already locked
+    if (loc.kind !== "ok") {
+      setLoc({
+        kind: "ok",
+        lat: stamped.lat,
+        lng: stamped.lng,
+        accuracy: stamped.accuracy,
+        area: stamped.area,
+      });
+    }
+    if (stamped.district) {
+      setDistrict(stamped.district);
+    }
   };
 
   const canContinue = () => {
@@ -704,13 +734,73 @@ function ReportPage() {
                 </div>
               </div>
             )}
-
             {step === 3 && (
               <div>
-                <h2 className="text-xl font-bold text-ink">Add photos (optional)</h2>
-                <p className="mt-1 text-xs sm:text-sm text-ink-2">
-                  Photos help verify problems faster. Up to 4 images.
-                </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-ink">Add photos (optional)</h2>
+                    <p className="mt-1 text-xs sm:text-sm text-ink-2">
+                      Photos help officials verify problems faster. Up to 4 images.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold text-ink-2">
+                    {photos.length}/4 photos
+                  </span>
+                </div>
+
+                {/* Primary Dual-Capture Panel */}
+                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {/* GPS Camera Card */}
+                  <button
+                    type="button"
+                    onClick={() => setIsGpsCameraOpen(true)}
+                    disabled={photos.length >= 4}
+                    className="group flex flex-col items-start justify-between rounded-xl border-2 border-accent/40 bg-accent-soft/40 p-4 text-left transition-all hover:border-accent hover:bg-accent-soft/70 disabled:opacity-50 disabled:pointer-events-none shadow-2xs"
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span className="flex size-9 items-center justify-center rounded-lg bg-accent text-white shadow-xs group-hover:scale-105 transition-transform">
+                        <Camera className="size-5" />
+                      </span>
+                      <span className="flex items-center gap-1 rounded-full bg-accent/20 px-2 py-0.5 text-[0.6875rem] font-bold text-accent">
+                        <Sparkles className="size-3" />
+                        Live Geotag Stamp
+                      </span>
+                    </div>
+                    <div className="mt-3">
+                      <p className="text-sm font-bold text-ink group-hover:text-accent transition-colors">
+                        Open Civic GPS Camera
+                      </p>
+                      <p className="mt-0.5 text-xs text-ink-2 leading-relaxed">
+                        Snap photo with live GPS coordinates, district & timestamp stamped on the image.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Gallery Upload Card */}
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={photos.length >= 4}
+                    className="group flex flex-col items-start justify-between rounded-xl border border-line bg-surface p-4 text-left transition-all hover:border-line-strong hover:bg-surface-2 disabled:opacity-50 disabled:pointer-events-none shadow-2xs"
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span className="flex size-9 items-center justify-center rounded-lg bg-surface-2 text-ink-2 border border-line group-hover:scale-105 transition-transform">
+                        <MapPin className="size-5" />
+                      </span>
+                      <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[0.6875rem] font-semibold text-ink-3">
+                        JPG, PNG, WebP
+                      </span>
+                    </div>
+                    <div className="mt-3">
+                      <p className="text-sm font-bold text-ink group-hover:text-ink transition-colors">
+                        Upload from Device
+                      </p>
+                      <p className="mt-0.5 text-xs text-ink-2 leading-relaxed">
+                        Select existing photos from your phone gallery or computer storage.
+                      </p>
+                    </div>
+                  </button>
+                </div>
 
                 <input
                   ref={fileRef}
@@ -724,44 +814,44 @@ function ReportPage() {
                   }}
                 />
 
-                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {photos.map((p, i) => (
-                    <div
-                      key={p.url}
-                      className="group relative aspect-square overflow-hidden rounded-xl border border-line bg-surface"
-                    >
-                      <img
-                        src={p.url}
-                        alt={`Evidence ${i + 1}`}
-                        className="size-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        aria-label={`Remove photo ${i + 1}`}
-                        onClick={() =>
-                          setPhotos((prev: { url: string; name: string }[]) =>
-                            prev.filter((_, idx) => idx !== i),
-                          )
-                        }
-                        className="absolute right-1.5 top-1.5 grid size-6 place-items-center rounded-full bg-black/70 text-white hover:bg-black"
-                      >
-                        <X className="size-3.5" />
-                      </button>
+                {/* Photos Thumbnail Grid */}
+                {photos.length > 0 && (
+                  <div className="mt-5">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-ink-2 mb-2.5">
+                      Attached Evidence ({photos.length})
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      {photos.map((p, i) => (
+                        <div
+                          key={p.url}
+                          className="group relative aspect-square overflow-hidden rounded-xl border border-line bg-surface shadow-2xs"
+                        >
+                          <img
+                            src={p.url}
+                            alt={`Evidence ${i + 1}`}
+                            className="size-full object-cover"
+                          />
+                          {p.isGpsStamped && (
+                            <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded bg-black/80 px-1.5 py-0.5 text-[0.625rem] font-bold text-ok backdrop-blur-xs">
+                              <Sparkles className="size-2.5" />
+                              GPS Stamped
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            aria-label={`Remove photo ${i + 1}`}
+                            onClick={() =>
+                              setPhotos((prev) => prev.filter((_, idx) => idx !== i))
+                            }
+                            className="absolute right-1.5 top-1.5 grid size-6 place-items-center rounded-full bg-black/70 text-white hover:bg-black"
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-
-                  {photos.length < 4 && (
-                    <button
-                      type="button"
-                      onClick={() => fileRef.current?.click()}
-                      className="flex aspect-square flex-col items-center justify-center rounded-xl border-2 border-dashed border-line bg-surface p-4 text-center transition-colors hover:border-line-strong hover:bg-surface-2"
-                    >
-                      <Camera aria-hidden className="size-6 text-ink-3" />
-                      <span className="mt-1.5 text-xs font-semibold text-ink">Add Photo</span>
-                      <span className="text-[0.6875rem] text-ink-3">JPG, PNG</span>
-                    </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -778,25 +868,30 @@ function ReportPage() {
                   <Row label="Description">
                     <span className="whitespace-pre-wrap">{description}</span>
                   </Row>
-                  {constituency && <Row label="Constituency">{constituency}</Row>}
                   <Row label="District">{district}</Row>
-                  <Row label="Location">
-                    {manualArea
-                      ? `${manualArea}${constituency ? ` (${constituency})` : ""}`
-                      : constituency
-                        ? constituency
-                        : loc.kind === "ok"
-                          ? `Device location · accuracy ±${loc.accuracy} m`
-                          : district}
-                  </Row>
-                  <Row label="Evidence">
-                    {photos.length ? `${photos.length} photo(s)` : "None attached"}
-                  </Row>
-                  <Row label="Timestamp">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Clock aria-hidden className="size-3.5 text-ink-3" />
-                      {formatDateTime(new Date().toISOString())}
-                    </span>
+                  {constituency && <Row label="Constituency">{constituency}</Row>}
+                  {manualArea && <Row label="Locality / Landmark">{manualArea}</Row>}
+                  <Row label="Photos">
+                    {photos.length === 0 ? (
+                      <span className="text-ink-3">None attached</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {photos.map((p, i) => (
+                          <div key={p.url} className="relative">
+                            <img
+                              src={p.url}
+                              alt={`Evidence ${i + 1}`}
+                              className="size-12 rounded-lg border border-line object-cover"
+                            />
+                            {p.isGpsStamped && (
+                              <span className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full bg-ok text-white text-[0.5rem] font-bold">
+                                ✓
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </Row>
                 </dl>
                 <p className="mt-3 text-[0.6875rem] leading-relaxed text-ink-3">
@@ -847,6 +942,15 @@ function ReportPage() {
           </div>
         </div>
       </main>
+
+      <GpsCameraModal
+        isOpen={isGpsCameraOpen}
+        onClose={() => setIsGpsCameraOpen(false)}
+        onPhotoCaptured={handleGpsPhotoCaptured}
+        defaultDistrict={district}
+        defaultConstituency={constituency}
+      />
+
       <SiteFooter />
     </>
   );
