@@ -66,6 +66,7 @@ export function GpsCameraModal({
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [activeDeviceIndex, setActiveDeviceIndex] = useState<number>(0);
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
 
   // Live GPS Telemetry state
   const [gpsStatus, setGpsStatus] = useState<GpsStatus>("acquiring");
@@ -107,6 +108,23 @@ export function GpsCameraModal({
     return () => clearInterval(interval);
   }, [isOpen]);
 
+  // Connect active mediaStream directly to the video element whenever stream changes or video mounts
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !mediaStream) return;
+
+    if (video.srcObject !== mediaStream) {
+      video.srcObject = mediaStream;
+    }
+
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        // Auto-play policy retry
+      });
+    }
+  }, [mediaStream, cameraStatus]);
+
   // Start continuous high-precision GPS Watch
   useEffect(() => {
     if (!isOpen) return;
@@ -129,7 +147,7 @@ export function GpsCameraModal({
         const calculatedDistrict = findNearestDistrict(latitude, longitude);
         setResolvedDistrictName(calculatedDistrict);
 
-        // Secondary: Enrich locality name via reverse geocode
+        // Secondary: Enrich landmark and locality name via reverse geocode
         try {
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
@@ -138,18 +156,35 @@ export function GpsCameraModal({
           if (res.ok) {
             const data = await res.json();
             const addr = data.address;
-            const road = addr?.road || addr?.street || addr?.pedestrian || "";
+            const landmark =
+              addr?.amenity ||
+              addr?.building ||
+              addr?.landmark ||
+              addr?.leisure ||
+              addr?.tourism ||
+              addr?.shop ||
+              addr?.office ||
+              "";
+            const road = addr?.road || addr?.street || addr?.pedestrian || addr?.highway || "";
             const locality =
               addr?.suburb ||
               addr?.neighbourhood ||
               addr?.village ||
+              addr?.hamlet ||
               addr?.town ||
               addr?.city_district ||
               addr?.city ||
               "";
-            const parts = [road, locality].filter(Boolean);
-            if (parts.length > 0) {
-              setResolvedLocationName(parts.join(", "));
+
+            const primaryParts = [landmark, road, locality].filter(Boolean);
+            if (primaryParts.length > 0) {
+              setResolvedLocationName(primaryParts.join(", "));
+            } else if (data.display_name) {
+              const dParts = data.display_name
+                .split(",")
+                .map((s: string) => s.trim())
+                .filter(Boolean);
+              setResolvedLocationName(dParts.slice(0, 2).join(", "));
             }
           }
         } catch {
@@ -180,7 +215,7 @@ export function GpsCameraModal({
     };
   }, [isOpen]);
 
-  // Start Camera Stream
+  // Start Camera Stream with layered constraint fallbacks
   useEffect(() => {
     if (!isOpen) return;
 
@@ -197,6 +232,7 @@ export function GpsCameraModal({
         }
         streamRef.current = null;
       }
+      setMediaStream(null);
 
       try {
         // Enumerate video devices
@@ -211,28 +247,60 @@ export function GpsCameraModal({
 
         const selectedDeviceId = devices[activeDeviceIndex]?.deviceId;
 
-        const constraints: MediaStreamConstraints = {
-          audio: false,
-          video: selectedDeviceId
-            ? { deviceId: { exact: selectedDeviceId } }
-            : {
-                facingMode: { ideal: "environment" },
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
-              },
-        };
+        let stream: MediaStream | null = null;
 
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        // Attempt 1: High definition or device-specific
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: selectedDeviceId
+              ? { deviceId: { exact: selectedDeviceId } }
+              : {
+                  facingMode: { ideal: "environment" },
+                  width: { ideal: 1920 },
+                  height: { ideal: 1080 },
+                },
+          });
+        } catch {
+          // Attempt 2: Flexible facing mode
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: false,
+              video: { facingMode: { ideal: "environment" } },
+            });
+          } catch {
+            // Attempt 3: Universal fallback
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: false,
+              video: true,
+            });
+          }
+        }
+
         if (!isSubscribed) {
-          for (const track of stream.getTracks()) track.stop();
+          if (stream) {
+            for (const track of stream.getTracks()) track.stop();
+          }
           return;
         }
 
+        if (!stream) {
+          throw new Error("No video stream returned by camera.");
+        }
+
         streamRef.current = stream;
+        setMediaStream(stream);
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = () => {
+            if (videoRef.current) {
+              videoRef.current.play().catch(() => {});
+            }
+          };
           await videoRef.current.play().catch(() => {});
         }
+
         setCameraStatus("ready");
       } catch (err: unknown) {
         if (!isSubscribed) return;
@@ -244,10 +312,14 @@ export function GpsCameraModal({
 
         if (isPermissionError) {
           setCameraStatus("denied");
-          setErrorMessage("Camera access was denied. Please allow camera permissions in your browser.");
+          setErrorMessage(
+            "Camera access was denied. Please allow camera permissions in your browser settings.",
+          );
         } else {
           setCameraStatus("error");
-          setErrorMessage("Could not initialize camera hardware. Please check your device settings.");
+          setErrorMessage(
+            "Could not initialize camera hardware. Please check your device settings or permissions.",
+          );
         }
       }
     }
@@ -262,6 +334,7 @@ export function GpsCameraModal({
         }
         streamRef.current = null;
       }
+      setMediaStream(null);
     };
   }, [isOpen, activeDeviceIndex]);
 
@@ -283,6 +356,7 @@ export function GpsCameraModal({
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
+    setMediaStream(null);
     setStampedPreview(null);
     onClose();
   };
@@ -329,11 +403,13 @@ export function GpsCameraModal({
       const accuracy = currentCoords?.accuracy ?? 0;
       const district = resolvedDistrictName || defaultDistrict || "Andhra Pradesh";
       const constituency = defaultConstituency ? `${defaultConstituency} A.C.` : "";
+
       const locationTitle = resolvedLocationName
         ? `${resolvedLocationName}, ${district}`
         : `${district}${constituency ? ` (${constituency})` : ""}`;
       const nowIso = new Date().toISOString();
-      const istTimeStr = clockString || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+      const istTimeStr =
+        clockString || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
       // Proportional Font Metrics based on canvas output pixel width
       const baseUnit = targetWidth / 1000;
@@ -382,7 +458,11 @@ export function GpsCameraModal({
       ctx.font = `500 ${smallFontSize}px "Plus Jakarta Sans", system-ui, sans-serif`;
       ctx.fillStyle = "#CBD5E1";
       const metaText = `${istTimeStr} IST  ·  Problems@AP Verified Evidence`;
-      ctx.fillText(metaText, paddingX, bannerTop + paddingY + titleFontSize + bodyFontSize + 16);
+      ctx.fillText(
+        metaText,
+        paddingX,
+        bannerTop + paddingY + titleFontSize + bodyFontSize + 16,
+      );
 
       // Reset shadow
       ctx.shadowBlur = 0;
@@ -488,102 +568,128 @@ export function GpsCameraModal({
                 GPS Geotag Stamped
               </div>
             </div>
-          ) : cameraStatus === "ready" ? (
+          ) : (
             /* Live Camera Stream with Viewfinder HUD */
             <div className="relative size-full flex items-center justify-center">
+              {/* Always mounted video element ensures immediate stream binding */}
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
                 muted
-                className="size-full object-cover"
+                onLoadedMetadata={() => {
+                  if (videoRef.current) {
+                    videoRef.current.play().catch(() => {});
+                  }
+                }}
+                className={`size-full object-cover transition-opacity duration-300 ${
+                  cameraStatus === "ready" ? "opacity-100" : "opacity-0"
+                }`}
               />
 
-              {/* Targeting Crosshairs Grid */}
-              <div className="pointer-events-none absolute inset-8 border border-white/20 rounded-xl">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-12 border border-white/30 rounded-full flex items-center justify-center">
-                  <div className="size-1.5 bg-accent rounded-full" />
+              {/* Initializing Spinner */}
+              {cameraStatus === "initializing" && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black z-10">
+                  <Loader2 className="size-8 animate-spin text-accent" />
+                  <p className="text-xs font-semibold text-slate-300">
+                    Starting camera hardware...
+                  </p>
                 </div>
-              </div>
+              )}
+
+              {/* Camera Permission Denied */}
+              {cameraStatus === "denied" && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-black z-10">
+                  <div className="flex size-14 items-center justify-center rounded-full bg-red-500/20 text-red-400">
+                    <Camera className="size-7" />
+                  </div>
+                  <h3 className="mt-4 text-lg font-bold text-white">Camera Access Denied</h3>
+                  <p className="mt-2 max-w-sm text-xs text-slate-400">{errorMessage}</p>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="mt-5 text-white"
+                    onClick={handleClose}
+                  >
+                    Upload from Gallery Instead
+                  </Button>
+                </div>
+              )}
+
+              {/* Camera Hardware Error */}
+              {cameraStatus === "error" && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-black z-10">
+                  <div className="flex size-14 items-center justify-center rounded-full bg-amber-500/20 text-amber-400">
+                    <Info className="size-7" />
+                  </div>
+                  <h3 className="mt-4 text-lg font-bold text-white">Camera Unavailable</h3>
+                  <p className="mt-2 max-w-sm text-xs text-slate-400">{errorMessage}</p>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="mt-5 text-white"
+                    onClick={handleClose}
+                  >
+                    Close Camera
+                  </Button>
+                </div>
+              )}
+
+              {/* Targeting Crosshairs Grid */}
+              {cameraStatus === "ready" && (
+                <div className="pointer-events-none absolute inset-8 border border-white/20 rounded-xl">
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-12 border border-white/30 rounded-full flex items-center justify-center">
+                    <div className="size-1.5 bg-accent rounded-full" />
+                  </div>
+                </div>
+              )}
 
               {/* Live Telemetry HUD Overlay */}
-              <div className="pointer-events-none absolute bottom-24 inset-x-4 flex flex-col gap-2">
-                <div className="self-start rounded-xl border border-white/15 bg-black/60 p-3 backdrop-blur-md shadow-xl max-w-md">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`size-2.5 rounded-full animate-pulse ${
-                        gpsStatus === "locked"
-                          ? "bg-ok"
+              {cameraStatus === "ready" && (
+                <div className="pointer-events-none absolute bottom-24 inset-x-4 flex flex-col gap-2">
+                  <div className="self-start rounded-xl border border-white/15 bg-black/65 p-3.5 backdrop-blur-md shadow-xl max-w-md">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`size-2.5 rounded-full animate-pulse ${
+                          gpsStatus === "locked"
+                            ? "bg-ok"
+                            : gpsStatus === "acquiring"
+                              ? "bg-amber-400"
+                              : "bg-red-400"
+                        }`}
+                      />
+                      <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-slate-300">
+                        {gpsStatus === "locked"
+                          ? `Satellite Lock (±${currentCoords?.accuracy}m)`
                           : gpsStatus === "acquiring"
-                            ? "bg-amber-400"
-                            : "bg-red-400"
-                      }`}
-                    />
-                    <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-slate-300">
-                      {gpsStatus === "locked"
-                        ? `Satellite Lock (±${currentCoords?.accuracy}m)`
-                        : gpsStatus === "acquiring"
-                          ? "Acquiring Satellites (<30m)..."
-                          : "Location Unavailable (Manual District)"}
-                    </span>
-                  </div>
+                            ? "Acquiring Satellites (<30m)..."
+                            : "Location Unavailable (Manual District)"}
+                      </span>
+                    </div>
 
-                  <div className="mt-1.5 flex items-center gap-1.5 text-xs font-bold text-white">
-                    <MapPin className="size-3.5 text-accent shrink-0" />
-                    <span className="truncate">
-                      {resolvedLocationName
-                        ? `${resolvedLocationName}, ${resolvedDistrictName}`
-                        : resolvedDistrictName || defaultDistrict || "Andhra Pradesh"}
-                    </span>
-                  </div>
+                    {/* Area & Landmark Display */}
+                    <div className="mt-2 flex items-start gap-1.5 text-xs font-bold text-white">
+                      <MapPin className="size-3.5 text-accent shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="truncate">
+                          {resolvedLocationName || "Locating Landmark / Area..."}
+                        </p>
+                        <p className="text-[0.6875rem] font-semibold text-slate-300 mt-0.5">
+                          {resolvedDistrictName || defaultDistrict || "Andhra Pradesh"}
+                          {defaultConstituency ? ` · ${defaultConstituency} A.C.` : ""}
+                        </p>
+                      </div>
+                    </div>
 
-                  <div className="mt-1 font-mono text-[0.6875rem] text-slate-300">
-                    {currentCoords
-                      ? `${currentCoords.lat.toFixed(6)}° N, ${currentCoords.lng.toFixed(6)}° E`
-                      : "Locating precision coordinates..."}
+                    {/* Coordinates */}
+                    <div className="mt-1.5 font-mono text-[0.6875rem] text-slate-300">
+                      {currentCoords
+                        ? `${currentCoords.lat.toFixed(6)}° N, ${currentCoords.lng.toFixed(6)}° E`
+                        : "Locating precision coordinates..."}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          ) : cameraStatus === "denied" ? (
-            /* Camera Permission Denied */
-            <div className="flex flex-col items-center justify-center p-6 text-center">
-              <div className="flex size-14 items-center justify-center rounded-full bg-red-500/20 text-red-400">
-                <Camera className="size-7" />
-              </div>
-              <h3 className="mt-4 text-lg font-bold text-white">Camera Access Denied</h3>
-              <p className="mt-2 max-w-sm text-xs text-slate-400">{errorMessage}</p>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="mt-5 text-white"
-                onClick={handleClose}
-              >
-                Upload from Gallery Instead
-              </Button>
-            </div>
-          ) : cameraStatus === "error" ? (
-            /* Camera Hardware Error */
-            <div className="flex flex-col items-center justify-center p-6 text-center">
-              <div className="flex size-14 items-center justify-center rounded-full bg-amber-500/20 text-amber-400">
-                <Info className="size-7" />
-              </div>
-              <h3 className="mt-4 text-lg font-bold text-white">Camera Unavailable</h3>
-              <p className="mt-2 max-w-sm text-xs text-slate-400">{errorMessage}</p>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="mt-5 text-white"
-                onClick={handleClose}
-              >
-                Close Camera
-              </Button>
-            </div>
-          ) : (
-            /* Initializing Spinner */
-            <div className="flex flex-col items-center justify-center gap-3">
-              <Loader2 className="size-8 animate-spin text-accent" />
-              <p className="text-xs font-semibold text-slate-300">Starting camera hardware...</p>
+              )}
             </div>
           )}
         </div>
