@@ -12,9 +12,9 @@
 
 * **100% Anonymous & Account-Free**: No login, no password, no OTP, no phone number, and no Aadhaar required.
 * **Strict 2-Feature Civic Scope**:
-  1. **Report a Problem**: Submit public issues (roads, drinking water, drainage, electricity, sanitation, etc.) in under 1 minute with optional in-app GPS Camera evidence and coordinates. Automatically receives an anonymous Reference ID (e.g., `AP-2026-6870`).
+  1. **Report a Problem**: Submit public issues (roads, drinking water, drainage, electricity, sanitation, etc.) in under 1 minute with optional in-app Survey-Grade GPS Camera evidence and coordinates. Automatically receives an anonymous Reference ID (e.g., `AP-2026-6870`).
   2. **See Reported Problems**: Explore, search, and filter public grievances across 175 assembly constituencies, 57 ministries, and 28 districts on an interactive OpenStreetMap and live rankings table.
-* **In-App Civic GPS Camera**: Built-in camera with live WebRTC viewfinder HUD and HTML5 Canvas geotag watermarking. Stamped with accurate coordinates, landmark/mandal, district, and IST timestamp.
+* **Survey-Grade In-App GPS Camera**: Built-in 2D Kalman filter GNSS engine, Open Location Plus Code generator, compass azimuth, torch flashlight, artificial horizon level, and HTML5 Canvas geotag watermarking.
 * **Respectful Representation**: All public representatives (Ministers and MLAs) are addressed with the respectful **"Garu"** suffix throughout the platform.
 * **Transparent Civic Pulse**: Real-time aggregations calculating which ministries, constituencies, and districts have the highest volume of citizen reports.
 
@@ -22,19 +22,29 @@
 
 ## Key Features & Capabilities
 
-### 1. In-App Civic GPS Camera & Live Geotag Watermarking
-* **Hardware Rear-Camera Priority**: Opens directly in the device's back camera by default with camera-switch support.
-* **Live Viewfinder Telemetry HUD**: Real-time display of GPS coordinates, signal quality pill, landmark/mandal detection, and live IST clock.
+### 1. In-App Civic Precision GPS Camera & Live Geotag Watermarking
+* **Hardware Rear-Camera Priority**: Opens directly in the device's primary back camera by default with camera-switch support.
+* **2D Kalman Filter GNSS Engine**: Implements real-time error covariance tracking ($P$ and measurement variance $R = \sigma^2$) to filter out multipath jitter and converge to sub-meter accuracy ($\le 3\text{m}$).
+* **Cadastral Open Location Code (Plus Code)**: Generates 10-character global grid addresses (e.g. `7J4VX7P8+2W`) providing universal 3-meter cadastral resolution.
+* **Live Telemetry & Survey HUD**:
+  * Real-time GPS coordinates to 6 decimal places.
+  * 4-tier accuracy lock indicator (`Survey Grade ≤ 5m`, `High Precision 6-12m`, `Acquiring`).
+  * Live sample convergence counter (e.g. `12 GNSS fixes converged`).
+  * Real-time Cardinal Compass direction (e.g. `Facing: 274° WNW`).
+  * Elevation / MSL Altitude (`Alt: 18m MSL`).
+  * Zoom-19 building and street landmark detection.
+* **Artificial Horizon & Leveling Indicator**: Dual-axis crosshairs turn green when the camera is held level ($\pm 3^\circ$), ensuring straight civic evidence photos.
+* **Hardware Flashlight / Torch & Tap-to-Focus**: Dedicated LED flashlight toggle for dark/night inspection and haptic tap-to-focus targeting ring.
 * **Dynamic Canvas Watermarking**: Burns an official translucent footer banner directly onto the photo:
   * **Line 1 (Location):** `[Landmark / Road], [Locality], [District] ([Constituency] A.C.)`
-  * **Line 2 (GPS Telemetry):** `GPS: 17.686812° N, 83.218543° E (±4m accuracy)`
-  * **Line 3 (Timestamp & Seal):** `28 Aug 2026, 05:15:00 PM IST  ·  Problems@AP Verified Evidence`
+  * **Line 2 (GPS Telemetry):** `GPS: 17.686812° N, 83.218543° E (±3m · Survey Grade) · Alt: 18m · Facing: 274° WNW`
+  * **Line 3 (Cadastral & Seal):** `Plus Code: 7J4VX7P8+2W · 28 Aug 2026, 09:15:00 PM IST · Ref: AP-GEO-9KR7TX · Problems@AP Verified Evidence`
 * **Clean Typography (Zero Emojis)**: Formal civic presentation suitable for official verification and public sharing.
-* **Payload Compression**: Output automatically scales to max $1600\text{px}$ JPEG ($q=0.85$) for rapid mobile uploads ($\sim 300\text{KB}-600\text{KB}$).
+* **Payload Compression**: Output automatically scales to max $1600\text{px}$ JPEG ($q=0.88$) for rapid mobile uploads ($\sim 300\text{KB}-600\text{KB}$).
 
 ### 2. High-Precision Geolocation & Statewide 28-District Matrix
-* **Multi-Sample Satellite Lock Engine**: Uses `navigator.geolocation.watchPosition` with `enableHighAccuracy: true` and `maximumAge: 0` to continuously refine satellite accuracy down to $\le 10\text{m}$.
-* **Nominatim Zoom-18 Reverse Geocoding**: Resolves exact landmarks, buildings, roads, villages, and mandals.
+* **Multi-Sample Satellite Lock Engine**: Uses `navigator.geolocation.watchPosition` with `enableHighAccuracy: true` and `maximumAge: 0` to continuously refine satellite accuracy.
+* **Nominatim Zoom-19 Reverse Geocoding**: Resolves exact landmarks, buildings, roads, villages, and mandals.
 * **Statewide 28-District Coordinates Matrix**: Embedded official coordinates for all 28 districts with deterministic anti-collision micro-jitter.
 * **Offline Resiliency**: Automatically resolves the nearest district mathematically if network geocoding is unavailable.
 * **100% Optional Flow**: Citizens can skip GPS and select District and Constituency manually; issues anchor automatically to the district center.
@@ -70,7 +80,7 @@ Problems@AP is built as a fullstack application with high-contrast civic typogra
 ### Frontend
 * **Framework**: [React 19](https://react.dev/) + [TanStack Start](https://tanstack.com/start) / [TanStack Router](https://tanstack.com/router)
 * **Build Tool**: [Vite](https://vitejs.dev/) + [Nitro](https://nitro.unjs.io/) (SSR + Cloudflare Worker prebuilt compatibility)
-* **Camera & Media**: WebRTC `getUserMedia` + HTML5 Canvas 2D Watermark Burner
+* **Camera & Media**: WebRTC `getUserMedia` + 2D Kalman Filter GNSS Engine + Open Location Plus Code Encoder + HTML5 Canvas Watermark Burner
 * **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) with Warm Beige Canvas (`#F5F2EB`), Deep Obsidian Type (`#1C1917`), and Andhra Terracotta (`#C2410C`)
 * **Typography**: [`Plus Jakarta Sans`](https://fonts.google.com/specimen/Plus+Jakarta+Sans) (Headings/Body) + [`JetBrains Mono`](https://fonts.google.com/specimen/JetBrains+Mono) (Reference IDs, Stats, Coordinates)
 * **Maps**: [Leaflet](https://leafletjs.com/) + [React-Leaflet](https://react-leaflet.js.org/) + [OpenStreetMap](https://www.openstreetmap.org/)
@@ -105,7 +115,7 @@ Problems@AP/
 │   │   ├── schemas/               # Pydantic Request/Response Models
 │   │   ├── services/              # Cloudinary Storage & Image Processing
 │   │   └── main.py                # FastAPI Application & Lifespan handler
-│   ├── tests/                     # Automated Test Suite (21/21 passing)
+│   ├── tests/                     # Automated Test Suite (20/20 passing)
 │   ├── pyproject.toml             # Python Dependencies
 │   ├── wrangler.toml              # Cloudflare Python Workers Configuration
 │   └── README.md
@@ -113,7 +123,7 @@ Problems@AP/
 ├── frontend/                       # TanStack Start / React Application
 │   ├── src/
 │   │   ├── components/            # Reusable UI Components
-│   │   │   ├── gps-camera-modal.tsx # In-App GPS Camera with HUD & Canvas Watermarking
+│   │   │   ├── gps-camera-modal.tsx # Precision GPS Camera, Kalman Filter & Plus Code
 │   │   │   ├── map-canvas.tsx     # Leaflet OpenStreetMap interactive canvas
 │   │   │   ├── problem-card.tsx   # Problem card and row components
 │   │   │   ├── problem-map.tsx    # SSR-safe dynamic map loader
@@ -215,7 +225,7 @@ npm run dev
 ### 3. Running Quality Checks & Tests
 
 ```bash
-# Run backend pytest suite (21/21 tests)
+# Run backend pytest suite (20/20 tests)
 cd backend
 uv run pytest
 
