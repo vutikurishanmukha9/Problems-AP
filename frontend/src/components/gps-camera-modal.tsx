@@ -895,35 +895,58 @@ export function GpsCameraModal({
   const isHighPrecision = accuracyMeters <= 15;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-0 sm:p-4 backdrop-blur-md">
-      <div className="relative flex h-full w-full max-w-2xl flex-col overflow-hidden bg-black text-white shadow-2xl sm:h-[90vh] sm:rounded-2xl sm:border sm:border-white/10">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-0 sm:p-4 backdrop-blur-xl">
+      <div className="relative flex h-full w-full max-w-2xl flex-col overflow-hidden bg-black text-white shadow-2xl sm:h-[90vh] sm:rounded-3xl sm:border sm:border-white/15">
         {/* Shutter White Flash Animation */}
         {shutterFlash && (
           <div className="pointer-events-none absolute inset-0 z-50 bg-white transition-opacity duration-150" />
         )}
 
-        {/* Header Bar */}
-        <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent p-4">
-          <div className="flex items-center gap-2">
-            <span className="flex size-7 items-center justify-center rounded-full bg-accent text-white shadow-sm">
-              <Camera className="size-4" />
+        {/* Floating Glassmorphic Pro Header Bar */}
+        <div className="absolute top-0 inset-x-0 z-30 flex items-center justify-between p-3.5 bg-gradient-to-b from-black/90 via-black/50 to-transparent">
+          {/* Brand & Status Pill */}
+          <div className="flex items-center gap-2.5 rounded-full border border-white/15 bg-black/60 px-3.5 py-1.5 backdrop-blur-xl shadow-lg">
+            <span className="flex size-6 items-center justify-center rounded-full bg-accent text-white shadow-xs">
+              <Camera className="size-3.5" />
             </span>
-            <div>
-              <p className="text-xs font-bold tracking-tight">Civic GPS Camera</p>
-              <p className="text-[0.625rem] text-slate-300 font-mono">{clockString} IST</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold tracking-tight text-white">Civic GPS Pro</span>
+              <span className="h-3 w-px bg-white/20" />
+              <span className="text-[0.6875rem] text-amber-400 font-mono font-medium">{clockString} IST</span>
             </div>
           </div>
 
+          {/* Action Controls */}
           <div className="flex items-center gap-2">
+            {/* Satellite Signal Indicator Pill */}
+            {!stampedPreview && cameraStatus === "ready" && (
+              <div className="hidden xs:flex items-center gap-1.5 rounded-full border border-white/15 bg-black/60 px-2.5 py-1 backdrop-blur-xl text-[0.625rem] font-bold text-slate-200 shadow-md">
+                <span
+                  className={`size-2 rounded-full ${
+                    gpsStatus === "locked"
+                      ? isHighPrecision
+                        ? "bg-ok shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse"
+                        : "bg-emerald-400"
+                      : gpsStatus === "acquiring"
+                        ? "bg-amber-400 animate-ping"
+                        : "bg-red-400"
+                  }`}
+                />
+                <span className="uppercase tracking-wider">
+                  {gpsStatus === "locked" ? `±${accuracyMeters}m` : "Acquiring"}
+                </span>
+              </div>
+            )}
+
             {/* Flashlight Torch Toggle */}
             {hasTorch && !stampedPreview && cameraStatus === "ready" && (
               <button
                 type="button"
                 onClick={toggleTorch}
-                className={`flex size-9 items-center justify-center rounded-full backdrop-blur-md transition-colors ${
+                className={`flex size-9 items-center justify-center rounded-full border border-white/15 backdrop-blur-xl transition-all active:scale-95 cursor-pointer shadow-md ${
                   isTorchOn
-                    ? "bg-amber-400 text-black shadow-lg shadow-amber-400/50"
-                    : "bg-white/15 text-white hover:bg-white/25"
+                    ? "bg-amber-400 text-black border-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.6)]"
+                    : "bg-white/10 text-white hover:bg-white/20"
                 }`}
                 title={isTorchOn ? "Turn off Flashlight" : "Turn on Flashlight"}
               >
@@ -936,18 +959,21 @@ export function GpsCameraModal({
               <button
                 type="button"
                 onClick={switchCamera}
-                className="flex size-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md hover:bg-white/25 transition-colors"
+                className="flex size-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl hover:bg-white/20 transition-all active:scale-95 cursor-pointer shadow-md"
                 title="Switch Camera"
               >
                 <FlipHorizontal className="size-4" />
               </button>
             )}
+
+            {/* Close Button */}
             <button
               type="button"
               onClick={handleClose}
-              className="flex size-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md hover:bg-white/25 transition-colors"
+              className="flex size-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-xl hover:bg-white/20 transition-all active:scale-95 cursor-pointer shadow-md"
+              title="Close Camera"
             >
-              <X className="size-5" />
+              <X className="size-4.5" />
             </button>
           </div>
         </div>
@@ -959,15 +985,15 @@ export function GpsCameraModal({
         >
           {stampedPreview ? (
             /* Review Screen with Stamped Watermark */
-            <div className="relative size-full flex items-center justify-center bg-slate-950">
+            <div className="relative size-full flex items-center justify-center bg-slate-950 p-2">
               <img
                 src={stampedPreview.previewUrl}
                 alt="Stamped Evidence Preview"
-                className="max-h-full max-w-full object-contain"
+                className="max-h-full max-w-full object-contain rounded-xl shadow-2xl"
               />
-              <div className="absolute top-16 left-4 rounded-full bg-ok/90 px-3 py-1 text-xs font-bold text-white shadow-lg backdrop-blur-md flex items-center gap-1.5">
+              <div className="absolute top-16 left-4 rounded-full bg-ok/90 px-3.5 py-1 text-xs font-bold text-white shadow-xl backdrop-blur-md flex items-center gap-1.5 border border-white/20">
                 <Sparkles className="size-3.5" />
-                Verified GPS Watermark
+                Verified GPS Watermark Stamped
               </div>
             </div>
           ) : (
@@ -992,8 +1018,8 @@ export function GpsCameraModal({
               {cameraStatus === "initializing" && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black z-10">
                   <Loader2 className="size-8 animate-spin text-accent" />
-                  <p className="text-xs font-semibold text-slate-300">
-                    Connecting camera & satellite lock...
+                  <p className="text-xs font-semibold text-slate-300 font-mono tracking-wide">
+                    Initializing camera & GPS satellite lock...
                   </p>
                 </div>
               )}
@@ -1005,10 +1031,10 @@ export function GpsCameraModal({
                     <Camera className="size-7" />
                   </div>
                   <h3 className="mt-4 text-lg font-bold text-white">Camera Access Denied</h3>
-                  <p className="mt-2 max-w-sm text-xs text-slate-400">{errorMessage}</p>
+                  <p className="mt-2 max-w-sm text-xs text-slate-400 leading-relaxed">{errorMessage}</p>
                   <button
                     type="button"
-                    className="mt-5 flex h-9 items-center justify-center rounded-lg border border-white/20 bg-white/15 px-4 text-xs font-semibold text-white transition-colors hover:bg-white/25 cursor-pointer"
+                    className="mt-5 flex h-9 items-center justify-center rounded-xl border border-white/20 bg-white/15 px-5 text-xs font-semibold text-white transition-colors hover:bg-white/25 cursor-pointer"
                     onClick={handleClose}
                   >
                     Close Camera
@@ -1023,10 +1049,10 @@ export function GpsCameraModal({
                     <Info className="size-7" />
                   </div>
                   <h3 className="mt-4 text-lg font-bold text-white">Camera Unavailable</h3>
-                  <p className="mt-2 max-w-sm text-xs text-slate-400">{errorMessage}</p>
+                  <p className="mt-2 max-w-sm text-xs text-slate-400 leading-relaxed">{errorMessage}</p>
                   <button
                     type="button"
-                    className="mt-5 flex h-9 items-center justify-center rounded-lg border border-white/20 bg-white/15 px-4 text-xs font-semibold text-white transition-colors hover:bg-white/25 cursor-pointer"
+                    className="mt-5 flex h-9 items-center justify-center rounded-xl border border-white/20 bg-white/15 px-5 text-xs font-semibold text-white transition-colors hover:bg-white/25 cursor-pointer"
                     onClick={handleClose}
                   >
                     Close Camera
@@ -1039,52 +1065,99 @@ export function GpsCameraModal({
                 <div
                   key={focusPoint.id}
                   style={{ top: focusPoint.y - 28, left: focusPoint.x - 28 }}
-                  className="pointer-events-none absolute size-14 rounded-lg border-2 border-amber-300 animate-ping opacity-80"
+                  className="pointer-events-none absolute size-14 rounded-xl border-2 border-amber-400 animate-ping opacity-90 shadow-[0_0_15px_rgba(251,191,36,0.8)]"
                 />
               )}
 
-              {/* Targeting Crosshairs Grid & Horizon Level Line */}
+              {/* Pro Optical Framing Reticle & 4-Corner Surveyor Brackets */}
               {cameraStatus === "ready" && (
-                <div className="pointer-events-none absolute inset-6 border border-white/20 rounded-xl">
-                  {/* Center Crosshair */}
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-14 border border-white/25 rounded-full flex items-center justify-center">
-                    <div
-                      className={`size-1.5 rounded-full transition-colors ${
-                        isHighPrecision ? "bg-ok" : "bg-accent"
-                      }`}
-                    />
+                <div className="pointer-events-none absolute inset-5 sm:inset-8">
+                  {/* Top-Left Corner Bracket */}
+                  <div className="absolute top-0 left-0 size-5 border-t-2 border-l-2 border-white/40 rounded-tl-sm" />
+                  {/* Top-Right Corner Bracket */}
+                  <div className="absolute top-0 right-0 size-5 border-t-2 border-r-2 border-white/40 rounded-tr-sm" />
+                  {/* Bottom-Left Corner Bracket */}
+                  <div className="absolute bottom-0 left-0 size-5 border-b-2 border-l-2 border-white/40 rounded-bl-sm" />
+                  {/* Bottom-Right Corner Bracket */}
+                  <div className="absolute bottom-0 right-0 size-5 border-b-2 border-r-2 border-white/40 rounded-br-sm" />
+
+                  {/* 3x3 Rule-of-Thirds Grid */}
+                  <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 opacity-20 pointer-events-none">
+                    <div className="border-r border-b border-white/60" />
+                    <div className="border-r border-b border-white/60" />
+                    <div className="border-b border-white/60" />
+                    <div className="border-r border-b border-white/60" />
+                    <div className="border-r border-b border-white/60" />
+                    <div className="border-b border-white/60" />
+                    <div className="border-r border-white/60" />
+                    <div className="border-r border-white/60" />
+                    <div />
                   </div>
 
-                  {/* Level Horizon Bar */}
+                  {/* Center Survey Crosshair & Concentric Reticle */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
+                    <div className={`size-16 rounded-full border transition-all duration-200 flex items-center justify-center ${
+                      isLevel && isHighPrecision
+                        ? "border-ok/90 scale-105 shadow-[0_0_12px_rgba(16,185,129,0.5)]"
+                        : "border-white/30"
+                    }`}>
+                      <div className="relative size-full flex items-center justify-center">
+                        {/* Micro Crosshair lines */}
+                        <div className="absolute h-2.5 w-0.5 bg-white/50 -top-1" />
+                        <div className="absolute h-2.5 w-0.5 bg-white/50 -bottom-1" />
+                        <div className="absolute w-2.5 h-0.5 bg-white/50 -left-1" />
+                        <div className="absolute w-2.5 h-0.5 bg-white/50 -right-1" />
+                        <div
+                          className={`size-2 rounded-full transition-colors ${
+                            isLevel && isHighPrecision
+                              ? "bg-ok shadow-[0_0_8px_rgba(16,185,129,1)]"
+                              : "bg-accent"
+                          }`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Electronic Spirit Level (Horizon & Roll Indicator) */}
                   {deviceTilt && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 flex items-center justify-between">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 flex items-center justify-between pointer-events-none">
                       <div
-                        className={`h-0.5 w-14 transition-colors ${
-                          isLevel ? "bg-ok" : "bg-white/40"
+                        className={`h-0.5 w-16 rounded-full transition-all duration-150 ${
+                          isLevel
+                            ? "bg-ok shadow-[0_0_8px_rgba(16,185,129,1)] scale-x-110"
+                            : "bg-white/35"
                         }`}
-                        style={{ transform: `rotate(${deviceTilt.gamma * 0.5}deg)` }}
+                        style={{ transform: `rotate(${deviceTilt.gamma * 0.6}deg)` }}
                       />
+                      {isLevel && (
+                        <span className="rounded-full bg-ok/90 px-2 py-0.5 text-[0.5625rem] font-mono font-bold text-white shadow-md uppercase tracking-wider backdrop-blur-xs">
+                          Level
+                        </span>
+                      )}
                       <div
-                        className={`h-0.5 w-14 transition-colors ${
-                          isLevel ? "bg-ok" : "bg-white/40"
+                        className={`h-0.5 w-16 rounded-full transition-all duration-150 ${
+                          isLevel
+                            ? "bg-ok shadow-[0_0_8px_rgba(16,185,129,1)] scale-x-110"
+                            : "bg-white/35"
                         }`}
-                        style={{ transform: `rotate(${deviceTilt.gamma * 0.5}deg)` }}
+                        style={{ transform: `rotate(${deviceTilt.gamma * 0.6}deg)` }}
                       />
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Live Telemetry HUD Overlay */}
+              {/* Floating Pro Civic Telemetry HUD Card */}
               {cameraStatus === "ready" && (
-                <div className="pointer-events-none absolute bottom-24 inset-x-4 flex flex-col gap-2">
-                  <div className="self-start rounded-xl border border-white/15 bg-black/75 p-3.5 backdrop-blur-md shadow-xl max-w-md">
-                    <div className="flex items-center justify-between gap-3">
+                <div className="pointer-events-none absolute bottom-28 inset-x-3 sm:inset-x-4 flex flex-col gap-2 z-20">
+                  <div className="self-start w-full max-w-lg rounded-2xl border border-white/20 bg-black/80 p-3.5 backdrop-blur-2xl shadow-2xl">
+                    {/* Top Status Strip */}
+                    <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
                       <div className="flex items-center gap-2">
                         <span
-                          className={`size-2.5 rounded-full animate-pulse ${
+                          className={`size-2.5 rounded-full ${
                             accuracyMeters <= 8
-                              ? "bg-ok"
+                              ? "bg-ok shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse"
                               : accuracyMeters <= 20
                                 ? "bg-emerald-400"
                                 : accuracyMeters <= 35
@@ -1092,49 +1165,53 @@ export function GpsCameraModal({
                                   : "bg-red-400"
                           }`}
                         />
-                        <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-slate-300">
+                        <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-slate-200">
                           {gpsStatus === "locked"
-                            ? `GPS Satellite Lock (±${accuracyMeters}m accuracy)`
+                            ? `GNSS Satellite Fix (±${accuracyMeters}m)`
                             : gpsStatus === "acquiring"
-                              ? "Acquiring Precision Satellites..."
-                              : "Location Unavailable (Manual District)"}
+                              ? "Acquiring Satellites..."
+                              : "Manual District Anchor"}
                         </span>
                       </div>
 
-                      {compassHeading && (
-                        <span className="flex items-center gap-1 rounded bg-white/10 px-1.5 py-0.5 text-[0.625rem] font-mono font-bold text-slate-300">
-                          <Compass className="size-2.5 text-accent" />
-                          {compassHeading}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {compassHeading && (
+                          <span className="flex items-center gap-1 rounded-md bg-white/10 px-2 py-0.5 text-[0.625rem] font-mono font-bold text-slate-200">
+                            <Compass className="size-3 text-accent" />
+                            {compassHeading}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Area & Landmark Display */}
-                    <div className="mt-2 flex items-start gap-1.5 text-xs font-bold text-white">
-                      <MapPin className="size-3.5 text-accent shrink-0 mt-0.5" />
+                    {/* Landmark & Cadastral Area Title */}
+                    <div className="mt-2 flex items-start gap-2">
+                      <span className="flex size-5 shrink-0 items-center justify-center rounded bg-accent/20 text-accent mt-0.5">
+                        <MapPin className="size-3" />
+                      </span>
                       <div className="min-w-0">
-                        <p className="truncate">
-                          {resolvedLocationName || "Locating Landmark / Area..."}
+                        <p className="text-xs font-bold text-white truncate tracking-tight">
+                          {resolvedLocationName || "Detecting Street / Landmark..."}
                         </p>
-                        <p className="text-[0.6875rem] font-semibold text-slate-300 mt-0.5">
+                        <p className="text-[0.6875rem] font-medium text-slate-300">
                           {resolvedDistrictName || defaultDistrict || "Andhra Pradesh"}
                           {defaultConstituency ? ` · ${defaultConstituency} A.C.` : ""}
                         </p>
                       </div>
                     </div>
 
-                    {/* Coordinates, Plus Code & Altitude */}
-                    <div className="mt-1.5 font-mono text-[0.6875rem] text-slate-300 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <span>
+                    {/* Geotag Telemetry Metrics Strip */}
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-lg bg-white/5 px-2.5 py-1.5 font-mono text-[0.6875rem] text-slate-300 border border-white/5">
+                      <span className="text-slate-100 font-semibold">
                         {currentCoords
                           ? `${currentCoords.lat.toFixed(6)}° N, ${currentCoords.lng.toFixed(6)}° E`
-                          : "Resolving precision fix..."}
+                          : "Synchronizing GPS..."}
                       </span>
                       {plusCodeString && (
-                        <span className="text-amber-300 font-semibold">· {plusCodeString}</span>
+                        <span className="text-amber-400 font-bold">· {plusCodeString}</span>
                       )}
                       {currentCoords?.altitude !== undefined && (
-                        <span>· Alt: {currentCoords.altitude}m</span>
+                        <span className="text-slate-400">· Alt: {currentCoords.altitude}m MSL</span>
                       )}
                     </div>
                   </div>
@@ -1144,54 +1221,62 @@ export function GpsCameraModal({
           )}
         </div>
 
-        {/* Bottom Action Footer */}
-        <div className="z-20 flex items-center justify-between border-t border-white/10 bg-black/90 p-4 backdrop-blur-md">
+        {/* Pro Camera Footer Action Bar */}
+        <div className="z-30 flex items-center justify-between border-t border-white/10 bg-gradient-to-t from-black via-black/95 to-black/80 p-4 sm:p-5 backdrop-blur-xl">
           {stampedPreview ? (
             /* Review Actions */
-            <div className="flex w-full items-center justify-between gap-3">
+            <div className="flex w-full items-center justify-between gap-4 max-w-lg mx-auto">
               <button
                 type="button"
                 onClick={handleRetake}
-                className="flex h-10 items-center justify-center gap-2 rounded-lg border border-white/30 bg-white/15 px-5 text-sm font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/25 active:scale-[0.99] cursor-pointer"
+                className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur-xl transition-all hover:bg-white/20 active:scale-95 cursor-pointer shadow-md"
               >
-                <RotateCcw className="size-4" />
-                Retake
+                <RotateCcw className="size-4.5" />
+                Retake Photo
               </button>
               <button
                 type="button"
                 onClick={handleConfirmPhoto}
-                className="flex h-10 items-center justify-center gap-2 rounded-lg bg-ok px-5 text-sm font-bold text-white shadow-md transition-colors hover:bg-ok/90 active:scale-[0.99] cursor-pointer"
+                className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-ok px-5 text-sm font-bold text-white shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all hover:bg-ok/90 hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] active:scale-95 cursor-pointer"
               >
-                <Check className="size-4" />
+                <Check className="size-4.5" />
                 Use Stamped Photo
               </button>
             </div>
           ) : cameraStatus === "ready" ? (
-            /* Shutter Trigger Button with Dynamic Precision Glow */
-            <div className="flex w-full items-center justify-center relative">
+            /* Pro 3-Ring Shutter Button */
+            <div className="flex w-full flex-col items-center justify-center gap-2 relative">
               <button
                 type="button"
                 onClick={capturePhoto}
                 disabled={isProcessing}
-                className={`group relative flex size-18 items-center justify-center rounded-full border-4 p-1 transition-all active:scale-95 disabled:opacity-50 ${
+                className={`group relative flex size-20 items-center justify-center rounded-full p-1.5 transition-all duration-200 active:scale-90 disabled:opacity-50 cursor-pointer ${
                   isHighPrecision
-                    ? "border-ok/90 bg-ok/20 shadow-lg shadow-ok/30"
-                    : "border-white/80 bg-white/20 shadow-lg shadow-white/10"
+                    ? "border-2 border-ok/80 bg-ok/10 shadow-[0_0_25px_rgba(16,185,129,0.35)]"
+                    : "border-2 border-white/60 bg-white/10 shadow-lg shadow-white/10"
                 }`}
                 title="Capture GPS Evidence Photo"
               >
-                <span className="size-full rounded-full bg-white transition-colors group-hover:bg-slate-200" />
+                {/* Outer concentric decorative ring */}
+                <span className="size-full rounded-full border-2 border-white/40 group-hover:border-white/80 transition-colors p-1 flex items-center justify-center">
+                  {/* Inner Solid White Shutter Face */}
+                  <span className="size-full rounded-full bg-white group-hover:bg-slate-100 transition-colors shadow-inner flex items-center justify-center" />
+                </span>
+
                 {isProcessing && (
-                  <Loader2 className="absolute size-7 animate-spin text-accent" />
+                  <Loader2 className="absolute size-8 animate-spin text-accent" />
                 )}
               </button>
+              <span className="text-[0.625rem] font-bold uppercase tracking-widest text-slate-400 font-mono">
+                Tap Shutter to Stamp Evidence
+              </span>
             </div>
           ) : (
             <div className="flex w-full justify-end">
               <button
                 type="button"
                 onClick={handleClose}
-                className="flex h-9 items-center justify-center rounded-lg border border-white/25 bg-white/15 px-4 text-xs font-semibold text-white transition-colors hover:bg-white/25 cursor-pointer"
+                className="flex h-9 items-center justify-center rounded-xl border border-white/20 bg-white/10 px-4 text-xs font-semibold text-white transition-colors hover:bg-white/20 cursor-pointer"
               >
                 Cancel
               </button>
