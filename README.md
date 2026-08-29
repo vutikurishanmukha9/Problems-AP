@@ -12,9 +12,9 @@
 
 * **100% Anonymous & Account-Free**: No login, no password, no OTP, no phone number, and no Aadhaar required.
 * **Strict 2-Feature Civic Scope**:
-  1. **Report a Problem**: Submit public issues (roads, drinking water, drainage, electricity, sanitation, etc.) in under 1 minute with optional in-app Survey-Grade GPS Camera evidence and coordinates. Automatically receives an anonymous Reference ID (e.g., `AP-2026-6870`).
+  1. **Report a Problem**: Submit public issues (roads, drinking water, drainage, electricity, sanitation, etc.) in under 1 minute with authentic, real-time in-app Survey-Grade GPS Camera evidence. Pre-existing gallery uploads and downloaded images are disabled to enforce genuine civic verification. Automatically receives an anonymous Reference ID (e.g., `AP-2026-6870`).
   2. **See Reported Problems**: Explore, search, and filter public grievances across 175 assembly constituencies, 57 ministries, and 28 districts on an interactive OpenStreetMap and live rankings table.
-* **Survey-Grade In-App GPS Camera**: Built-in 2D Kalman filter GNSS engine, Open Location Plus Code generator, compass azimuth, torch flashlight, artificial horizon level, and HTML5 Canvas geotag watermarking.
+* **Survey-Grade In-App GPS Camera**: Built-in direct GNSS satellite telemetry, Open Location Plus Code generator, compass azimuth, torch flashlight, artificial horizon level, and HTML5 Canvas geotag watermarking.
 * **Respectful Representation**: All public representatives (Ministers and MLAs) are addressed with the respectful **"Garu"** suffix throughout the platform.
 * **Transparent Civic Pulse**: Real-time aggregations calculating which ministries, constituencies, and districts have the highest volume of citizen reports.
 

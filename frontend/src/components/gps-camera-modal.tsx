@@ -1011,7 +1011,7 @@ export function GpsCameraModal({
                     className="mt-5 flex h-9 items-center justify-center rounded-lg border border-white/20 bg-white/15 px-4 text-xs font-semibold text-white transition-colors hover:bg-white/25 cursor-pointer"
                     onClick={handleClose}
                   >
-                    Upload from Gallery Instead
+                    Close Camera
                   </button>
                 </div>
               )}

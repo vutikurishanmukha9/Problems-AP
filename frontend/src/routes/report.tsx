@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState, type ReactNode, type ChangeEvent } from "react";
+import { useEffect, useState, type ReactNode, type ChangeEvent } from "react";
 import { Camera, Check, Copy, Loader2, MapPin, Sparkles, X } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -66,7 +66,6 @@ function ReportPage() {
   const [copiedId, setCopiedId] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   // Ensure every step and confirmation stage loads at the top of the page
   useEffect(() => {
@@ -213,14 +212,6 @@ function ReportPage() {
     } catch {
       setLoc({ kind: "error", message: "Failed to access device GPS location hardware." });
     }
-  };
-
-  const addPhotos = (files: FileList | null) => {
-    if (!files) return;
-    const next = Array.from(files)
-      .slice(0, 4 - photos.length)
-      .map((f) => ({ url: URL.createObjectURL(f), name: f.name, file: f }));
-    setPhotos((p) => [...p, ...next]);
   };
 
   const handleGpsPhotoCaptured = (stamped: GpsCapturedPhoto) => {
@@ -738,9 +729,9 @@ function ReportPage() {
               <div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-xl font-bold text-ink">Add photos (optional)</h2>
+                    <h2 className="text-xl font-bold text-ink">Add GPS Evidence Photos (optional)</h2>
                     <p className="mt-1 text-xs sm:text-sm text-ink-2">
-                      Photos help officials verify problems faster. Up to 4 images.
+                      To ensure genuine civic evidence, all photos must be captured live using the built-in GPS Camera.
                     </p>
                   </div>
                   <span className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold text-ink-2">
@@ -748,77 +739,54 @@ function ReportPage() {
                   </span>
                 </div>
 
-                {/* Primary Dual-Capture Panel */}
-                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {/* GPS Camera Card */}
+                {/* Exclusive GPS Camera Launch Studio */}
+                <div className="mt-5">
                   <button
                     type="button"
                     onClick={() => setIsGpsCameraOpen(true)}
                     disabled={photos.length >= 4}
-                    className="group flex flex-col items-start justify-between rounded-xl border-2 border-accent/40 bg-accent-soft/40 p-4 text-left transition-all hover:border-accent hover:bg-accent-soft/70 disabled:opacity-50 disabled:pointer-events-none shadow-2xs"
+                    className="group flex w-full flex-col sm:flex-row sm:items-center items-start justify-between gap-4 rounded-xl border-2 border-accent/40 bg-accent-soft/40 p-5 text-left transition-all hover:border-accent hover:bg-accent-soft/70 disabled:opacity-50 disabled:pointer-events-none shadow-2xs cursor-pointer"
                   >
-                    <div className="flex items-center justify-between w-full">
-                      <span className="flex size-9 items-center justify-center rounded-lg bg-accent text-white shadow-xs group-hover:scale-105 transition-transform">
-                        <Camera className="size-5" />
+                    <div className="flex items-center gap-3.5">
+                      <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-accent text-white shadow-xs group-hover:scale-105 transition-transform">
+                        <Camera className="size-6" />
                       </span>
-                      <span className="flex items-center gap-1 rounded-full bg-accent/20 px-2 py-0.5 text-[0.6875rem] font-bold text-accent">
-                        <Sparkles className="size-3" />
-                        Live Geotag Stamp
-                      </span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-base font-bold text-ink group-hover:text-accent transition-colors">
+                            Open Civic GPS Camera
+                          </p>
+                          <span className="flex items-center gap-1 rounded-full bg-accent/20 px-2 py-0.5 text-[0.6875rem] font-bold text-accent">
+                            <Sparkles className="size-3" />
+                            Live Geotag Stamp
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-ink-2 leading-relaxed">
+                          Captures live photo with verified coordinates, Plus Code, district, and IST timestamp stamped directly on the image.
+                        </p>
+                      </div>
                     </div>
-                    <div className="mt-3">
-                      <p className="text-sm font-bold text-ink group-hover:text-accent transition-colors">
-                        Open Civic GPS Camera
-                      </p>
-                      <p className="mt-0.5 text-xs text-ink-2 leading-relaxed">
-                        Snap photo with live GPS coordinates, district & timestamp stamped on the image.
-                      </p>
+
+                    <div className="shrink-0 self-stretch sm:self-center">
+                      <span className="inline-flex w-full sm:w-auto items-center justify-center rounded-lg bg-accent px-4 py-2 text-xs font-bold text-white shadow-xs group-hover:bg-accent-hover transition-colors">
+                        Launch Camera
+                      </span>
                     </div>
                   </button>
 
-                  {/* Gallery Upload Card */}
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    disabled={photos.length >= 4}
-                    className="group flex flex-col items-start justify-between rounded-xl border border-line bg-surface p-4 text-left transition-all hover:border-line-strong hover:bg-surface-2 disabled:opacity-50 disabled:pointer-events-none shadow-2xs"
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <span className="flex size-9 items-center justify-center rounded-lg bg-surface-2 text-ink-2 border border-line group-hover:scale-105 transition-transform">
-                        <MapPin className="size-5" />
-                      </span>
-                      <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[0.6875rem] font-semibold text-ink-3">
-                        JPG, PNG, WebP
-                      </span>
-                    </div>
-                    <div className="mt-3">
-                      <p className="text-sm font-bold text-ink group-hover:text-ink transition-colors">
-                        Upload from Device
-                      </p>
-                      <p className="mt-0.5 text-xs text-ink-2 leading-relaxed">
-                        Select existing photos from your phone gallery or computer storage.
-                      </p>
-                    </div>
-                  </button>
+                  <div className="mt-3.5 flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50/60 p-3.5 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+                    <Sparkles className="size-4 text-accent shrink-0 mt-0.5" />
+                    <p className="leading-relaxed">
+                      <strong className="font-semibold">Verified Evidence Policy:</strong> Uploading pre-existing gallery photos or downloaded images is disabled. All visual evidence must be captured directly from the camera at the problem location to prevent false or outdated reports.
+                    </p>
+                  </div>
                 </div>
-
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="sr-only"
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                    addPhotos(e.target.files);
-                    if (e.target) e.target.value = "";
-                  }}
-                />
 
                 {/* Photos Thumbnail Grid */}
                 {photos.length > 0 && (
-                  <div className="mt-5">
+                  <div className="mt-6">
                     <p className="text-xs font-semibold uppercase tracking-wider text-ink-2 mb-2.5">
-                      Attached Evidence ({photos.length})
+                      Attached GPS Evidence ({photos.length})
                     </p>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                       {photos.map((p, i) => (
@@ -828,22 +796,20 @@ function ReportPage() {
                         >
                           <img
                             src={p.url}
-                            alt={`Evidence ${i + 1}`}
+                            alt={`GPS Evidence ${i + 1}`}
                             className="size-full object-cover"
                           />
-                          {p.isGpsStamped && (
-                            <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded bg-black/80 px-1.5 py-0.5 text-[0.625rem] font-bold text-ok backdrop-blur-xs">
-                              <Sparkles className="size-2.5" />
-                              GPS Stamped
-                            </span>
-                          )}
+                          <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded bg-black/80 px-1.5 py-0.5 text-[0.625rem] font-bold text-ok backdrop-blur-xs">
+                            <Sparkles className="size-2.5" />
+                            GPS Stamped
+                          </span>
                           <button
                             type="button"
                             aria-label={`Remove photo ${i + 1}`}
                             onClick={() =>
                               setPhotos((prev) => prev.filter((_, idx) => idx !== i))
                             }
-                            className="absolute right-1.5 top-1.5 grid size-6 place-items-center rounded-full bg-black/70 text-white hover:bg-black"
+                            className="absolute right-1.5 top-1.5 grid size-6 place-items-center rounded-full bg-black/70 text-white hover:bg-black cursor-pointer"
                           >
                             <X className="size-3.5" />
                           </button>
