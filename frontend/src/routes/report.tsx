@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode, type ChangeEvent } from "react";
-import { Camera, Check, Copy, Loader2, MapPin, Sparkles, X } from "lucide-react";
+import { Camera, Check, Copy, Loader2, MapPin, X } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { Button, ButtonLink } from "@/components/ui-kit";
@@ -756,9 +756,9 @@ function ReportPage() {
                           <p className="text-base font-bold text-ink group-hover:text-accent transition-colors">
                             Open Civic GPS Camera
                           </p>
-                          <span className="flex items-center gap-1 rounded-full bg-accent/20 px-2 py-0.5 text-[0.6875rem] font-bold text-accent">
-                            <Sparkles className="size-3" />
-                            Live Geotag Stamp
+                          <span className="flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[0.6875rem] font-bold text-accent">
+                            <MapPin className="size-3" />
+                            Live Geotag
                           </span>
                         </div>
                         <p className="mt-1 text-xs text-ink-2 leading-relaxed">
@@ -775,7 +775,7 @@ function ReportPage() {
                   </button>
 
                   <div className="mt-3.5 flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50/60 p-3.5 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
-                    <Sparkles className="size-4 text-accent shrink-0 mt-0.5" />
+                    <Camera className="size-4 text-accent shrink-0 mt-0.5" />
                     <p className="leading-relaxed">
                       <strong className="font-semibold">Verified Evidence Policy:</strong> Uploading pre-existing gallery photos or downloaded images is disabled. All visual evidence must be captured directly from the camera at the problem location to prevent false or outdated reports.
                     </p>
@@ -800,7 +800,7 @@ function ReportPage() {
                             className="size-full object-cover"
                           />
                           <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded bg-black/80 px-1.5 py-0.5 text-[0.625rem] font-bold text-ok backdrop-blur-xs">
-                            <Sparkles className="size-2.5" />
+                            <MapPin className="size-2.5" />
                             GPS Stamped
                           </span>
                           <button
