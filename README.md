@@ -13,8 +13,10 @@
 * **100% Anonymous & Account-Free**: No login, no password, no OTP, no phone number, and no Aadhaar required.
 * **Strict 2-Feature Civic Scope**:
   1. **Report a Problem**: Submit public issues (roads, drinking water, drainage, electricity, sanitation, etc.) in under 1 minute with authentic, real-time in-app Survey-Grade GPS Camera evidence. Pre-existing gallery uploads and downloaded images are disabled to enforce genuine civic verification. Automatically receives an anonymous Reference ID (e.g., `AP-2026-6870`).
-  2. **See Reported Problems**: Explore, search, and filter public grievances across 175 assembly constituencies, 57 ministries, and 28 districts on an interactive OpenStreetMap and live rankings table.
-* **Survey-Grade In-App GPS Camera**: Built-in direct GNSS satellite telemetry, Open Location Plus Code generator, compass azimuth, torch flashlight, artificial horizon level, and HTML5 Canvas geotag watermarking.
+  2. **See Reported Problems**: Explore, search, and filter public grievances across 175 assembly constituencies, 57 ministries, and 28 districts on an interactive Open-Source Map and live rankings table.
+* **Authentic Native In-App GPS Camera**: Clean, real-camera UX with rear camera prioritization, tap-to-focus, LED flashlight torch, live satellite lock indicator, and 4-tier canvas geotag watermark stamping.
+* **Proximity Landmark & Rural Hierarchy Engine**: Resolves exact Street, Nearby Landmark, Colony, Village, Mandal, District, and PIN code across both urban cities and rural panchayats in Andhra Pradesh.
+* **Multi-Style Open-Source Maps**: Seamlessly switch between Clean Streets (CartoDB Voyager), Satellite Aerial Imagery (Esri), Rural Terrain (OpenTopoMap), and Standard OpenStreetMap.
 * **Respectful Representation**: All public representatives (Ministers and MLAs) are addressed with the respectful **"Garu"** suffix throughout the platform.
 * **Transparent Civic Pulse**: Real-time aggregations calculating which ministries, constituencies, and districts have the highest volume of citizen reports.
 
@@ -23,36 +25,38 @@
 ## Key Features & Capabilities
 
 ### 1. In-App Civic Precision GPS Camera & Live Geotag Watermarking
+* **Authentic Native Camera Experience**: Unobstructed live viewfinder, subtle 3x3 photography grid, hardware LED torch toggle, flip camera, tap-to-focus box, and classic native shutter button with flash feedback.
+* **Zero AI-Slop Design**: Completely free from distracting AI shapes, fake star badges, rotating gyroscopes, or heavy telemetry cards.
 * **Hardware Rear-Camera Priority**: Opens directly in the device's primary back camera by default with camera-switch support.
-* **2D Kalman Filter GNSS Engine**: Implements real-time error covariance tracking ($P$ and measurement variance $R = \sigma^2$) to filter out multipath jitter and converge to sub-meter accuracy ($\le 3\text{m}$).
-* **Cadastral Open Location Code (Plus Code)**: Generates 10-character global grid addresses (e.g. `7J4VX7P8+2W`) providing universal 3-meter cadastral resolution.
-* **Live Telemetry & Survey HUD**:
-  * Real-time GPS coordinates to 6 decimal places.
-  * 4-tier accuracy lock indicator (`Survey Grade ≤ 5m`, `High Precision 6-12m`, `Acquiring`).
-  * Live sample convergence counter (e.g. `12 GNSS fixes converged`).
-  * Real-time Cardinal Compass direction (e.g. `Facing: 274° WNW`).
-  * Elevation / MSL Altitude (`Alt: 18m MSL`).
-  * Zoom-19 building and street landmark detection.
-* **Artificial Horizon & Leveling Indicator**: Dual-axis crosshairs turn green when the camera is held level ($\pm 3^\circ$), ensuring straight civic evidence photos.
-* **Hardware Flashlight / Torch & Tap-to-Focus**: Dedicated LED flashlight toggle for dark/night inspection and haptic tap-to-focus targeting ring.
-* **Dynamic Canvas Watermarking**: Burns an official translucent footer banner directly onto the photo:
-  * **Line 1 (Location):** `[Landmark / Road], [Locality], [District] ([Constituency] A.C.)`
-  * **Line 2 (GPS Telemetry):** `GPS: 17.686812° N, 83.218543° E (±3m · Survey Grade) · Alt: 18m · Facing: 274° WNW`
-  * **Line 3 (Cadastral & Seal):** `Plus Code: 7J4VX7P8+2W · 28 Aug 2026, 09:15:00 PM IST · Ref: AP-GEO-9KR7TX · Problems@AP Verified Evidence`
-* **Clean Typography (Zero Emojis)**: Formal civic presentation suitable for official verification and public sharing.
-* **Payload Compression**: Output automatically scales to max $1600\text{px}$ JPEG ($q=0.88$) for rapid mobile uploads ($\sim 300\text{KB}-600\text{KB}$).
+* **Cadastral Open Location Code (Plus Code)**: Generates 10-character global grid addresses (e.g. `7M829M3P+JV`) providing universal 3-meter cadastral resolution.
+* **Dynamic 4-Tier Canvas Geotag Banner**:
+  * **Line 1 (Ground Location):** `[Nearby Landmark], [Street / Colony], [Village / Hamlet], [Mandal / City]` (e.g., `Near Amrutha Hospitals, Lalitha Nagar, Rajahmundry Urban` or `Attaluruvaripalem, Duggirala Mandal`)
+  * **Line 2 (Administrative Hierarchy):** `[Constituency] A.C. · [District] District, Andhra Pradesh · PIN: [Pincode]`
+  * **Line 3 (Precision GNSS Telemetry):** `GPS: 17.018701° N, 81.777273° E (±3m accuracy) · Alt: 18m MSL`
+  * **Line 4 (Verification Seal):** `Plus Code: 7M829M3P+JV · 31 Aug 2026, 11:55:00 AM IST · Ref: AP-GEO-9X2 · Problems@AP Verified Evidence`
+* **Verified Evidence Policy**: Uploading pre-existing gallery photos or downloaded images is disabled. All visual evidence must be captured directly from the camera at the problem location to prevent false or outdated reports.
+* **Payload Optimization**: Canvas output automatically scales to max $1600\text{px}$ JPEG ($q=0.88$) for rapid mobile uploads ($\sim 300\text{KB}-600\text{KB}$).
 
-### 2. High-Precision Geolocation & Statewide 28-District Matrix
-* **Multi-Sample Satellite Lock Engine**: Uses `navigator.geolocation.watchPosition` with `enableHighAccuracy: true` and `maximumAge: 0` to continuously refine satellite accuracy.
-* **Nominatim Zoom-19 Reverse Geocoding**: Resolves exact landmarks, buildings, roads, villages, and mandals.
-* **Statewide 28-District Coordinates Matrix**: Embedded official coordinates for all 28 districts with deterministic anti-collision micro-jitter.
-* **Offline Resiliency**: Automatically resolves the nearest district mathematically if network geocoding is unavailable.
-* **100% Optional Flow**: Citizens can skip GPS and select District and Constituency manually; issues anchor automatically to the district center.
+---
 
-### 3. OpenStreetMap Canvas & Interactive Visualizations
+### 2. Multi-Strategy Proximity Landmark & Rural Address Engine
+* **Proximity Landmark Scanner (Overpass OSM)**: Automatically identifies verified hospitals, colleges, schools, temples, clinics, and landmarks within 250m (e.g., `Near Amrutha Hospitals`).
+* **Intelligent Address Normalization & De-duplication**: Cleans raw OpenStreetMap tags, converts all-caps text to Title Case, and strips erroneous/noisy street numbers to preserve authentic colony names (e.g., `Lalitha Nagar`).
+* **Rural Administrative Hierarchy**: Accurately resolves Gram Panchayats, Villages, Hamlets, and Mandals (e.g., `Duggirala Mandal`, `Thullur Mandal`, `Paderu Mandal`).
+* **Synchronized Reporting Wizard**: Auto-detecting GPS on Step 2 ("Where is the problem?") automatically fills the `LOCALITY / STREET / LANDMARK` field with the complete resolved address.
+
+---
+
+### 3. Multi-Style Open-Source Map Suite
+* **Interactive Layer Switcher**:
+  * **Streets (CartoDB Voyager / OpenStreetMap)**: Ultra-clean, high-contrast civic map with crisp road and locality labeling.
+  * **Satellite (Esri World Imagery)**: Free high-resolution aerial photography for inspecting rural terrain, water bodies, and agricultural roads.
+  * **Terrain (OpenTopoMap)**: Topographical relief and contour mapping displaying elevation, rural tracks, ghat roads, and waterways.
+  * **OSM Standard**: Canonical community-maintained open geographic database.
 * **Container Lifecycle Management**: Automatic `map.invalidateSize()` calls and `ResizeObserver` lifecycle listeners to eliminate gray or blank tiles.
-* **Multi-Subdomain Tile Loading**: Configured with `["a", "b", "c"]` subdomains for high-throughput tile rendering without rate limits.
 * **Cluster Markers & Interactive Popups**: Live status badges, citizen voice counts, and direct links to problem details.
+
+---
 
 ### 4. Timezone-Normalized Timestamps
 * All timestamps stored in UTC (`datetime.now(timezone.utc)`) and parsed as UTC ISO strings on the client.
@@ -79,11 +83,11 @@ Problems@AP is built as a fullstack application with high-contrast civic typogra
 
 ### Frontend
 * **Framework**: [React 19](https://react.dev/) + [TanStack Start](https://tanstack.com/start) / [TanStack Router](https://tanstack.com/router)
-* **Build Tool**: [Vite](https://vitejs.dev/) + [Nitro](https://nitro.unjs.io/) (SSR + Cloudflare Worker prebuilt compatibility)
-* **Camera & Media**: WebRTC `getUserMedia` + 2D Kalman Filter GNSS Engine + Open Location Plus Code Encoder + HTML5 Canvas Watermark Burner
+* **Build Tool**: [Vite](https://vitejs.dev/) + [Nitro](https://nitro.unjs.io/) (SSR + Vercel / Cloudflare Worker prebuilt compatibility)
+* **Camera & Media**: WebRTC `getUserMedia` + Open Location Plus Code Encoder + HTML5 Canvas Geotag Stamp Engine
+* **Geocoding & Maps**: [Leaflet](https://leafletjs.com/) + [React-Leaflet](https://react-leaflet.js.org/) + [OpenStreetMap](https://www.openstreetmap.org/) + [Photon (Komoot)](https://photon.komoot.io/) + [Overpass API](https://overpass-api.de/) + [BigDataCloud](https://www.bigdatacloud.com/)
 * **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) with Warm Beige Canvas (`#F5F2EB`), Deep Obsidian Type (`#1C1917`), and Andhra Terracotta (`#C2410C`)
 * **Typography**: [`Plus Jakarta Sans`](https://fonts.google.com/specimen/Plus+Jakarta+Sans) (Headings/Body) + [`JetBrains Mono`](https://fonts.google.com/specimen/JetBrains+Mono) (Reference IDs, Stats, Coordinates)
-* **Maps**: [Leaflet](https://leafletjs.com/) + [React-Leaflet](https://react-leaflet.js.org/) + [OpenStreetMap](https://www.openstreetmap.org/)
 * **Icons**: [Lucide React](https://lucide.dev/)
 * **Quality & Linting**: [Oxlint](https://oxc-project.github.io/) (Anti-Slop Linter) + TypeScript strict mode
 
@@ -123,8 +127,8 @@ Problems@AP/
 ├── frontend/                       # TanStack Start / React Application
 │   ├── src/
 │   │   ├── components/            # Reusable UI Components
-│   │   │   ├── gps-camera-modal.tsx # Precision GPS Camera, Kalman Filter & Plus Code
-│   │   │   ├── map-canvas.tsx     # Leaflet OpenStreetMap interactive canvas
+│   │   │   ├── gps-camera-modal.tsx # Native GPS Camera & 4-Tier Geotag Stamp Engine
+│   │   │   ├── map-canvas.tsx     # Leaflet Multi-Style Open-Source Map Canvas
 │   │   │   ├── problem-card.tsx   # Problem card and row components
 │   │   │   ├── problem-map.tsx    # SSR-safe dynamic map loader
 │   │   │   ├── site-header.tsx    # Responsive navigation & notice bar
@@ -134,8 +138,9 @@ Problems@AP/
 │   │   │   ├── constituencies.ts  # 175 Constituencies with MLA Garu
 │   │   │   ├── taxonomy.ts        # 57 Ministries, 28 Districts & Coordinates
 │   │   │   └── problems.ts        # Problem types, UTC parser & seed dataset
-│   │   ├── lib/                   # Utilities & API Client
+│   │   ├── lib/                   # Utilities, Geocoding & API Client
 │   │   │   ├── api-client.ts      # Typed API client for FastAPI backend
+│   │   │   ├── geocoding.ts       # Multi-Strategy Proximity & Rural Geocoder
 │   │   │   └── utils.ts           # CSS class merger (cn)
 │   │   ├── routes/                # File-Based TanStack Routes
 │   │   │   ├── __root.tsx         # Root layout with Google Fonts
@@ -143,7 +148,7 @@ Problems@AP/
 │   │   │   ├── explore.tsx        # Search, filter by ministry/MLA/district
 │   │   │   ├── report.tsx         # 5-step anonymous problem reporting wizard
 │   │   │   ├── departments.tsx    # Complete 57 Ministries & 28 Districts Rankings
-│   │   │   ├── map.tsx            # Fullscreen interactive OpenStreetMap view
+│   │   │   ├── map.tsx            # Fullscreen interactive Open-Source Map view
 │   │   │   └── problems.$id.tsx   # Detailed problem view with timeline & voices
 │   │   └── styles.css             # High-contrast warm beige design system
 │   ├── package.json
