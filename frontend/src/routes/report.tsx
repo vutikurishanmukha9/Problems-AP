@@ -17,6 +17,7 @@ import { getMLAForConstituency } from "@/data/constituencies";
 import { formatDateTime } from "@/data/problems";
 import { ProblemMap } from "@/components/problem-map";
 import { GpsCameraModal, type GpsCapturedPhoto } from "@/components/gps-camera-modal";
+import { resolveComprehensiveAddress } from "@/lib/geocoding";
 import { apiClient } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +44,15 @@ export const Route = createFileRoute("/report")({
 type LocState =
   | { kind: "idle" }
   | { kind: "loading" }
-  | { kind: "ok"; area: string; accuracy: number; lat: number; lng: number }
+  | {
+      kind: "ok";
+      area: string;
+      accuracy: number;
+      lat: number;
+      lng: number;
+      primaryTitle?: string | undefined;
+      secondaryTitle?: string | undefined;
+    }
   | { kind: "error"; message: string };
 
 const STEPS = ["Problem", "Details", "Location", "Evidence", "Review"];
@@ -107,56 +116,30 @@ function ReportPage() {
       }
 
       const { latitude, longitude, accuracy } = pos.coords;
-      let detectedArea = `GPS Location (${latitude.toFixed(6)}, ${longitude.toFixed(6)})`;
 
-      // High-precision reverse geocoding at street / building level
-      try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-          { headers: { "Accept-Language": "en" } },
-        );
-        if (res.ok) {
-          const data = await res.json();
-          const addr = data.address;
-          const road = addr?.road || addr?.street || addr?.pedestrian || "";
-          const locality =
-            addr?.suburb ||
-            addr?.neighbourhood ||
-            addr?.village ||
-            addr?.town ||
-            addr?.city_district ||
-            addr?.city ||
-            "";
-          const county = addr?.county || addr?.state_district || "";
+      // Ultra-high precision multi-strategy reverse geocoding (Street, Landmark, Colony, Village, Mandal)
+      const addrDetails = await resolveComprehensiveAddress(
+        latitude,
+        longitude,
+        district || undefined,
+        constituency || undefined,
+      );
 
-          const parts = [road, locality, county].filter(Boolean);
-          if (parts.length > 0) {
-            detectedArea = parts.join(", ");
-            if (!manualArea) {
-              setManualArea(parts.slice(0, 2).join(", "));
-            }
-          }
-          if (county) {
-            const matchedDistrict = DISTRICTS_DATA.find(
-              (d) =>
-                county.toLowerCase().includes(d.name.toLowerCase()) ||
-                d.name.toLowerCase().includes(county.toLowerCase()),
-            );
-            if (matchedDistrict) {
-              setDistrict(matchedDistrict.name);
-            }
-          }
-        }
-      } catch {
-        // Fallback to high precision GPS coordinates
+      // Always update locality/street/landmark field with the resolved rich location (Landmark, Street, Colony, Mandal)
+      setManualArea(addrDetails.primaryTitle || addrDetails.fullAddress || "");
+      if (addrDetails.district) {
+        setDistrict(addrDetails.district);
       }
 
+      const fallbackArea = `GPS Location (${latitude.toFixed(6)}, ${longitude.toFixed(6)})`;
       setLoc({
         kind: "ok",
         lat: latitude,
         lng: longitude,
         accuracy: Math.round(accuracy),
-        area: detectedArea,
+        area: addrDetails.fullAddress || addrDetails.primaryTitle || fallbackArea,
+        primaryTitle: addrDetails.primaryTitle,
+        secondaryTitle: addrDetails.secondaryTitle,
       });
     };
 
@@ -227,15 +210,21 @@ function ReportPage() {
 
     // Authoritatively sync coordinates to report location from the GPS-stamped photo
     if (stamped.isGpsStamped && stamped.lat !== 0 && stamped.lng !== 0) {
+      const fullAddressTitle = stamped.fullAddress || stamped.area;
       setLoc({
         kind: "ok",
         lat: stamped.lat,
         lng: stamped.lng,
         accuracy: stamped.accuracy,
-        area: stamped.area,
+        area: fullAddressTitle,
+        primaryTitle: stamped.area,
+        secondaryTitle: stamped.fullAddress,
       });
       if (stamped.district) {
         setDistrict(stamped.district);
+      }
+      if (!manualArea) {
+        setManualArea(fullAddressTitle);
       }
     }
   };
@@ -640,7 +629,14 @@ function ReportPage() {
                                   High Precision (±{loc.accuracy}m)
                                 </span>
                               </div>
-                              <p className="mt-0.5 text-xs text-ink-2 truncate">{loc.area}</p>
+                              <p className="mt-1 text-xs font-bold text-ink leading-snug">
+                                {loc.primaryTitle || loc.area}
+                              </p>
+                              {loc.secondaryTitle && (
+                                <p className="mt-0.5 text-[0.6875rem] font-semibold text-accent leading-snug">
+                                  📍 {loc.secondaryTitle}
+                                </p>
+                              )}
                               <p className="mt-1 text-[0.6875rem] font-semibold text-ink-3">
                                 Exact Coordinates: {loc.lat.toFixed(6)}, {loc.lng.toFixed(6)}
                               </p>
@@ -649,7 +645,7 @@ function ReportPage() {
                           <button
                             type="button"
                             onClick={() => setLoc({ kind: "idle" })}
-                            className="text-xs font-semibold text-ink-3 hover:text-accent"
+                            className="text-xs font-semibold text-ink-3 hover:text-accent shrink-0"
                             title="Clear live location"
                           >
                             Clear
@@ -672,13 +668,13 @@ function ReportPage() {
                           problems={[
                             {
                               id: "preview-live",
-                              title: "Your GPS Location",
-                              description: loc.area,
+                              title: loc.primaryTitle || "Your GPS Location",
+                              description: loc.secondaryTitle || loc.area,
                               category: category || "roads",
                               department: "",
                               constituency: constituency || "",
                               district: district || "",
-                              area: loc.area,
+                              area: loc.primaryTitle || loc.area,
                               lat: loc.lat,
                               lng: loc.lng,
                               reportedAt: new Date().toISOString(),

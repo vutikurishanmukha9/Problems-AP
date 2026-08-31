@@ -11,7 +11,10 @@ import {
   Zap,
   ZapOff,
 } from "lucide-react";
-import { DISTRICTS_DATA, getDistrictForConstituency } from "@/data/taxonomy";
+import {
+  resolveComprehensiveAddress,
+  type ResolvedAddress,
+} from "@/lib/geocoding";
 
 export interface GpsCapturedPhoto {
   readonly file: File;
@@ -22,6 +25,10 @@ export interface GpsCapturedPhoto {
   readonly altitude?: number | undefined;
   readonly plusCode: string;
   readonly area: string;
+  readonly fullAddress?: string | undefined;
+  readonly mandal?: string | undefined;
+  readonly village?: string | undefined;
+  readonly pincode?: string | undefined;
   readonly district: string;
   readonly capturedAt: string;
   readonly stampId: string;
@@ -100,21 +107,6 @@ function encodePlusCode(latitude: number, longitude: number): string {
   return code;
 }
 
-function findNearestDistrict(lat: number, lng: number): string {
-  let minDistance = Number.POSITIVE_INFINITY;
-  let nearest = "Andhra Pradesh";
-  for (const d of DISTRICTS_DATA) {
-    const dLat = d.lat - lat;
-    const dLng = d.lng - lng;
-    const distSq = dLat * dLat + dLng * dLng;
-    if (distSq < minDistance) {
-      minDistance = distSq;
-      nearest = d.name;
-    }
-  }
-  return nearest;
-}
-
 function generateStampId(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let id = "AP-GEO-";
@@ -122,139 +114,6 @@ function generateStampId(): string {
     id += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return id;
-}
-
-/**
- * Ultra-Reliable Multi-Tier Reverse Geocoder for Andhra Pradesh
- * Queries OpenStreetMap Nominatim, BigDataCloud Client API, and Photon Komoot.
- * Resolves building, landmark, amenity, road, street, sub-locality, village, and town.
- */
-async function fetchReverseGeocode(lat: number, lng: number): Promise<string> {
-  // Tier 1: OpenStreetMap Nominatim with full address detail parsing
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2800);
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-      {
-        headers: { "Accept-Language": "en" },
-        signal: controller.signal,
-      },
-    );
-    clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json();
-      const addr = data.address;
-      const landmark =
-        addr?.amenity ||
-        addr?.building ||
-        addr?.landmark ||
-        addr?.leisure ||
-        addr?.tourism ||
-        addr?.shop ||
-        addr?.office ||
-        addr?.historic ||
-        addr?.place_of_worship ||
-        addr?.commercial ||
-        "";
-      const road =
-        addr?.road ||
-        addr?.street ||
-        addr?.pedestrian ||
-        addr?.highway ||
-        addr?.path ||
-        addr?.lane ||
-        "";
-      const locality =
-        addr?.suburb ||
-        addr?.neighbourhood ||
-        addr?.residential ||
-        addr?.quarter ||
-        addr?.village ||
-        addr?.hamlet ||
-        addr?.town ||
-        addr?.city_district ||
-        addr?.city ||
-        "";
-
-      const parts = [landmark, road, locality].filter(Boolean);
-      if (parts.length > 0) {
-        return parts.join(", ");
-      }
-      if (data.display_name) {
-        const dParts = data.display_name
-          .split(",")
-          .map((s: string) => s.trim())
-          .filter(Boolean);
-        if (dParts.length >= 2) {
-          return dParts.slice(0, 2).join(", ");
-        }
-      }
-    }
-  } catch {
-    // Continue to Tier 2
-  }
-
-  // Tier 2: BigDataCloud Reverse Geocoding Client API (Free, high-speed, no rate limits)
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2400);
-    const res = await fetch(
-      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
-      { signal: controller.signal },
-    );
-    clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json();
-      const locality = data.locality || data.localityInfo?.administrative?.[3]?.name || "";
-      const subLocality =
-        data.localityInfo?.administrative?.[4]?.name ||
-        data.localityInfo?.informative?.[0]?.name ||
-        "";
-      const city = data.city || data.principalSubdivision || "";
-
-      const parts = [subLocality, locality, city]
-        .filter(Boolean)
-        .filter((val, idx, arr) => arr.indexOf(val) === idx);
-
-      if (parts.length > 0) {
-        return parts.slice(0, 2).join(", ");
-      }
-    }
-  } catch {
-    // Continue to Tier 3
-  }
-
-  // Tier 3: Photon / Komoot OpenStreetMap Reverse API
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
-    const res = await fetch(
-      `https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`,
-      { signal: controller.signal },
-    );
-    clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json();
-      const feature = data?.features?.[0]?.properties;
-      if (feature) {
-        const name = feature.name || "";
-        const street = feature.street || "";
-        const locality = feature.district || feature.locality || feature.city || "";
-        const parts = [name, street, locality].filter(Boolean);
-        if (parts.length > 0) {
-          return parts.slice(0, 2).join(", ");
-        }
-      }
-    }
-  } catch {
-    // Fallback
-  }
-
-  return "";
 }
 
 export function GpsCameraModal({
@@ -290,6 +149,7 @@ export function GpsCameraModal({
     altitude?: number | undefined;
   } | null>(null);
   const [plusCodeString, setPlusCodeString] = useState<string>("");
+  const [resolvedAddress, setResolvedAddress] = useState<ResolvedAddress | null>(null);
   const [resolvedLocationName, setResolvedLocationName] = useState<string>("");
   const [resolvedDistrictName, setResolvedDistrictName] = useState<string>(
     defaultDistrict || "",
@@ -376,14 +236,17 @@ export function GpsCameraModal({
 
       setGpsStatus(roundedAcc <= 25 ? "locked" : "acquiring");
 
-      // Calculate nearest district from exact coordinates
-      const calculatedDistrict = findNearestDistrict(latitude, longitude);
-      setResolvedDistrictName(calculatedDistrict);
-
-      // Resolve exact landmark & street name asynchronously
-      const locName = await fetchReverseGeocode(latitude, longitude);
-      if (locName) {
-        setResolvedLocationName(locName);
+      // Resolve full detailed address including Landmark, Street, Colony, Village, Mandal, District & Pincode
+      const addrDetails = await resolveComprehensiveAddress(
+        latitude,
+        longitude,
+        defaultDistrict,
+        defaultConstituency,
+      );
+      setResolvedAddress(addrDetails);
+      setResolvedLocationName(addrDetails.primaryTitle);
+      if (addrDetails.district) {
+        setResolvedDistrictName(addrDetails.district);
       }
     };
 
@@ -429,7 +292,7 @@ export function GpsCameraModal({
         watchIdRef.current = null;
       }
     };
-  }, [isOpen]);
+  }, [isOpen, defaultDistrict, defaultConstituency]);
 
   // Start Camera Stream with rear-camera prioritization
   useEffect(() => {
@@ -675,7 +538,7 @@ export function GpsCameraModal({
     setActiveDeviceIndex((prev) => (prev + 1) % videoDevices.length);
   };
 
-  // Precision Capture Engine: Watermarks authentic GPS coordinates & street name
+  // Precision Capture Engine: Watermarks authentic GPS coordinates & complete address
   const capturePhoto = async () => {
     if (!videoRef.current || isProcessing) return;
     setIsProcessing(true);
@@ -746,32 +609,31 @@ export function GpsCameraModal({
       const finalLat = lat ?? 0;
       const finalLng = lng ?? 0;
 
-      const district = resolvedDistrictName || defaultDistrict || "Andhra Pradesh";
-      const constituencyDistrict = defaultConstituency
-        ? getDistrictForConstituency(defaultConstituency)
-        : undefined;
-      const isMatchingConstituency =
-        !constituencyDistrict ||
-        constituencyDistrict.toLowerCase() === district.toLowerCase();
-      const constituencyLabel =
-        defaultConstituency && isMatchingConstituency
-          ? `${defaultConstituency} A.C.`
-          : "";
       const stampId = generateStampId();
       const plusCode = hasRealGps ? plusCodeString || encodePlusCode(finalLat, finalLng) : "";
 
-      // Ensure location name is resolved on-demand if empty
-      let locName = resolvedLocationName;
-      if (!locName && hasRealGps) {
-        locName = await fetchReverseGeocode(finalLat, finalLng);
-        if (locName) {
-          setResolvedLocationName(locName);
-        }
+      // Ensure full address details are resolved
+      let addr = resolvedAddress;
+      if (!addr && hasRealGps) {
+        addr = await resolveComprehensiveAddress(
+          finalLat,
+          finalLng,
+          defaultDistrict,
+          defaultConstituency,
+        );
+        setResolvedAddress(addr);
       }
 
-      const locationTitle = locName
-        ? `${locName}, ${district}`
-        : `${district}${constituencyLabel ? ` (${constituencyLabel})` : ""}`;
+      const primaryTitle =
+        addr?.primaryTitle ||
+        resolvedLocationName ||
+        (defaultDistrict ? `${defaultDistrict}, Andhra Pradesh` : "Andhra Pradesh");
+
+      const district = addr?.district || resolvedDistrictName || defaultDistrict || "Andhra Pradesh";
+      const secondaryTitle =
+        addr?.secondaryTitle ||
+        `${defaultConstituency ? `${defaultConstituency} A.C. · ` : ""}${district} District · Andhra Pradesh`;
+
       const nowIso = new Date().toISOString();
       const istTimeStr =
         clockString || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
@@ -779,19 +641,19 @@ export function GpsCameraModal({
       // Proportional Font Metrics based on canvas output pixel width
       const baseUnit = targetWidth / 1000;
       const titleFontSize = Math.max(16, Math.round(baseUnit * 22));
-      const bodyFontSize = Math.max(13, Math.round(baseUnit * 17));
-      const smallFontSize = Math.max(11, Math.round(baseUnit * 14));
+      const bodyFontSize = Math.max(13, Math.round(baseUnit * 16));
+      const smallFontSize = Math.max(11, Math.round(baseUnit * 13));
       const paddingX = Math.max(18, Math.round(baseUnit * 26));
-      const paddingY = Math.max(16, Math.round(baseUnit * 22));
+      const paddingY = Math.max(16, Math.round(baseUnit * 20));
 
-      const bannerHeight = Math.max(140, Math.round(targetHeight * 0.22));
+      const bannerHeight = Math.max(165, Math.round(targetHeight * 0.25));
       const bannerTop = targetHeight - bannerHeight;
 
       // Draw Obsidian Translucent Gradient Banner
       const gradient = ctx.createLinearGradient(0, bannerTop - 35, 0, targetHeight);
       gradient.addColorStop(0, "rgba(8, 12, 22, 0)");
-      gradient.addColorStop(0.2, "rgba(8, 12, 22, 0.84)");
-      gradient.addColorStop(1, "rgba(8, 12, 22, 0.97)");
+      gradient.addColorStop(0.18, "rgba(8, 12, 22, 0.88)");
+      gradient.addColorStop(1, "rgba(8, 12, 22, 0.98)");
 
       ctx.fillStyle = gradient;
       ctx.fillRect(0, bannerTop - 35, targetWidth, bannerHeight + 35);
@@ -802,16 +664,20 @@ export function GpsCameraModal({
 
       ctx.textBaseline = "top";
 
-      // Line 1: Landmark, Locality & District
+      // Line 1: Exact Landmark, Road, Village/Hamlet & Mandal (Bold White)
       ctx.font = `bold ${titleFontSize}px "Plus Jakarta Sans", system-ui, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
       ctx.shadowColor = "rgba(0,0,0,0.85)";
       ctx.shadowBlur = 5;
-      const locText = locationTitle;
-      ctx.fillText(locText, paddingX, bannerTop + paddingY);
+      ctx.fillText(primaryTitle, paddingX, bannerTop + paddingY);
 
-      // Line 2: Precision GPS Coordinates & Accuracy
-      ctx.font = `600 ${bodyFontSize}px "JetBrains Mono", monospace`;
+      // Line 2: Full Administrative Hierarchy, Constituency, State & PIN (Amber-Gold)
+      ctx.font = `600 ${bodyFontSize}px "Plus Jakarta Sans", system-ui, sans-serif`;
+      ctx.fillStyle = "#FDE68A";
+      ctx.fillText(secondaryTitle, paddingX, bannerTop + paddingY + titleFontSize + 6);
+
+      // Line 3: Precision GNSS Hardware Telemetry & Accuracy (White Mono)
+      ctx.font = `600 ${smallFontSize}px "JetBrains Mono", monospace`;
       ctx.fillStyle = "#F8FAFC";
       let coordsText = "";
       if (hasRealGps) {
@@ -825,9 +691,13 @@ export function GpsCameraModal({
       } else {
         coordsText = `Location: ${district} · Manual District Assignment`;
       }
-      ctx.fillText(coordsText, paddingX, bannerTop + paddingY + titleFontSize + 8);
+      ctx.fillText(
+        coordsText,
+        paddingX,
+        bannerTop + paddingY + titleFontSize + bodyFontSize + 14,
+      );
 
-      // Line 3: Cadastral Plus Code, Timestamp, Verification Stamp ID & Seal
+      // Line 4: Cadastral Plus Code, Timestamp & Verification Reference (Light Slate)
       ctx.font = `500 ${smallFontSize}px "Plus Jakarta Sans", system-ui, sans-serif`;
       ctx.fillStyle = "#CBD5E1";
       let metaText = "";
@@ -839,7 +709,7 @@ export function GpsCameraModal({
       ctx.fillText(
         metaText,
         paddingX,
-        bannerTop + paddingY + titleFontSize + bodyFontSize + 16,
+        bannerTop + paddingY + titleFontSize + bodyFontSize + smallFontSize + 22,
       );
 
       ctx.shadowBlur = 0;
@@ -862,7 +732,11 @@ export function GpsCameraModal({
             accuracy,
             altitude,
             plusCode,
-            area: locationTitle,
+            area: primaryTitle,
+            fullAddress: addr?.fullAddress || `${primaryTitle}, ${secondaryTitle}`,
+            mandal: addr?.mandal,
+            village: addr?.villageOrHamlet,
+            pincode: addr?.pincode,
             district,
             capturedAt: nowIso,
             stampId,
@@ -1116,12 +990,14 @@ export function GpsCameraModal({
             {/* Clean Location Pill Overlay at Bottom of Viewfinder */}
             {cameraStatus === "ready" && (
               <div className="pointer-events-none absolute bottom-3 inset-x-3 flex justify-center z-20">
-                <div className="flex items-center gap-1.5 rounded-full bg-black/70 px-3.5 py-1 text-xs text-slate-200 backdrop-blur-md border border-white/10 shadow-md max-w-full truncate">
+                <div className="flex items-center gap-1.5 rounded-full bg-black/75 px-3.5 py-1.5 text-xs text-slate-200 backdrop-blur-md border border-white/10 shadow-lg max-w-full">
                   <MapPin className="size-3.5 text-accent shrink-0" />
                   <span className="truncate">
-                    {resolvedLocationName
-                      ? `${resolvedLocationName}, ${resolvedDistrictName || defaultDistrict || "AP"}`
-                      : resolvedDistrictName || defaultDistrict || "Detecting Location..."}
+                    {resolvedAddress
+                      ? `${resolvedAddress.primaryTitle} · ${resolvedAddress.district}`
+                      : resolvedLocationName
+                        ? `${resolvedLocationName}, ${resolvedDistrictName || defaultDistrict || "AP"}`
+                        : resolvedDistrictName || defaultDistrict || "Detecting Location..."}
                   </span>
                 </div>
               </div>

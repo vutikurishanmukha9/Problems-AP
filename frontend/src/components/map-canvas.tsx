@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -9,12 +9,52 @@ import {
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { Link } from "@tanstack/react-router";
+import { Layers, Map as MapIcon, Globe, Mountain } from "lucide-react";
 import { categoryLabel } from "@/data/taxonomy";
 import { timeAgo } from "@/data/problems";
 import type { ProblemMapProps } from "./problem-map";
 
 const AP_DEFAULT_CENTER: [number, number] = [16.5, 80.6];
 const AP_DEFAULT_ZOOM = 7;
+
+type MapStyle = "voyager" | "satellite" | "terrain" | "osm";
+
+interface TileConfig {
+  url: string;
+  attribution: string;
+  subdomains?: string[];
+  maxZoom: number;
+}
+
+const MAP_TILE_CONFIGS: Record<MapStyle, TileConfig> = {
+  voyager: {
+    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>',
+    subdomains: ["a", "b", "c", "d"],
+    maxZoom: 20,
+  },
+  satellite: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution:
+      "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
+    maxZoom: 18,
+  },
+  terrain: {
+    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+    attribution:
+      'Map data: &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
+    subdomains: ["a", "b", "c"],
+    maxZoom: 17,
+  },
+  osm: {
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
+    subdomains: ["a", "b", "c"],
+    maxZoom: 19,
+  },
+};
 
 function MapViewportManager({
   problems,
@@ -112,12 +152,15 @@ export default function MapCanvas({
   selectedId,
   className,
 }: ProblemMapProps) {
+  const [mapStyle, setMapStyle] = useState<MapStyle>("voyager");
   const selected = problems.find((p) => p.id === selectedId);
   const initialCenter: [number, number] =
     selected && selected.lat && selected.lng
       ? [selected.lat, selected.lng]
       : AP_DEFAULT_CENTER;
   const initialZoom = selected ? 13 : AP_DEFAULT_ZOOM;
+
+  const currentTileConfig = MAP_TILE_CONFIGS[mapStyle];
 
   return (
     <div
@@ -126,6 +169,64 @@ export default function MapCanvas({
       role="region"
       aria-label="Interactive OpenStreetMap problem map of Andhra Pradesh"
     >
+      {/* Floating Open-Source Map Style Switcher */}
+      {interactive && (
+        <div className="absolute top-3 right-3 z-[1000] flex items-center rounded-lg border border-black/15 bg-surface/90 p-1 shadow-md backdrop-blur-md dark:border-white/15 dark:bg-black/80">
+          <button
+            type="button"
+            onClick={() => setMapStyle("voyager")}
+            className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+              mapStyle === "voyager"
+                ? "bg-accent text-white shadow-2xs"
+                : "text-ink-2 hover:text-ink"
+            }`}
+            title="Clean Street Map (OpenStreetMap / CartoDB)"
+          >
+            <MapIcon className="size-3" />
+            <span className="hidden sm:inline">Streets</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMapStyle("satellite")}
+            className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+              mapStyle === "satellite"
+                ? "bg-accent text-white shadow-2xs"
+                : "text-ink-2 hover:text-ink"
+            }`}
+            title="Satellite Aerial Imagery (Esri)"
+          >
+            <Globe className="size-3" />
+            <span className="hidden sm:inline">Satellite</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMapStyle("terrain")}
+            className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+              mapStyle === "terrain"
+                ? "bg-accent text-white shadow-2xs"
+                : "text-ink-2 hover:text-ink"
+            }`}
+            title="Topographical & Rural Terrain (OpenTopoMap)"
+          >
+            <Mountain className="size-3" />
+            <span className="hidden sm:inline">Terrain</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMapStyle("osm")}
+            className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+              mapStyle === "osm"
+                ? "bg-accent text-white shadow-2xs"
+                : "text-ink-2 hover:text-ink"
+            }`}
+            title="Standard OpenStreetMap"
+          >
+            <Layers className="size-3" />
+            <span className="hidden sm:inline">OSM</span>
+          </button>
+        </div>
+      )}
+
       <MapContainer
         center={initialCenter}
         zoom={initialZoom}
@@ -137,18 +238,20 @@ export default function MapCanvas({
       >
         <MapViewportManager problems={problems} selectedId={selectedId} />
 
-        {/* Resilient multi-subdomain OpenStreetMap tile layer */}
+        {/* Selected Open-Source Tile Layer */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          subdomains={["a", "b", "c"]}
-          maxZoom={19}
+          key={mapStyle}
+          attribution={currentTileConfig.attribution}
+          url={currentTileConfig.url}
+          subdomains={currentTileConfig.subdomains}
+          maxZoom={currentTileConfig.maxZoom}
         />
 
         {/* Problem markers across Andhra Pradesh */}
         {problems.map((p) => {
           if (!p.lat || !p.lng) return null;
           const isSelected = p.id === selectedId;
+          const isSatellite = mapStyle === "satellite";
           const radius = isSelected ? 11 : Math.min(6 + p.reports / 5, 12);
 
           return (
@@ -157,10 +260,10 @@ export default function MapCanvas({
               center={[p.lat, p.lng]}
               radius={radius}
               pathOptions={{
-                color: isSelected ? "#8E2800" : "#C65A3A",
+                color: isSelected ? "#FFFFFF" : isSatellite ? "#FFFFFF" : "#8E2800",
                 weight: isSelected ? 3 : 2,
-                fillColor: isSelected ? "#C65A3A" : "#C65A3A",
-                fillOpacity: isSelected ? 0.85 : 0.55,
+                fillColor: isSelected ? "#E05D38" : "#E05D38",
+                fillOpacity: isSelected ? 0.95 : 0.75,
               }}
             >
               <Popup className="ap-map-popup" autoPanPadding={[20, 20]}>
