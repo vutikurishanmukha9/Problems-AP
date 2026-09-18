@@ -220,6 +220,7 @@ export async function resolveComprehensiveAddress(
       clearTimeout(timer);
       if (res.ok) {
         const data = await res.json();
+        // SAFETY: BigDataCloud localityInfo.administrative is an array of administrative division descriptors
         const admin =
           (data.localityInfo?.administrative as Array<{
             name?: string;

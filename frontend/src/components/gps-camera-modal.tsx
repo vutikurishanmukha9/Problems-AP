@@ -415,6 +415,7 @@ export function GpsCameraModal({
 
         const videoTrack = stream.getVideoTracks()[0];
         if (videoTrack && "getCapabilities" in videoTrack) {
+          // SAFETY: Extended MediaTrackCapabilities interface includes torch for supported hardware
           const capabilities = videoTrack.getCapabilities() as MediaTrackCapabilitiesExtended;
           setHasTorch(Boolean(capabilities.torch));
 
@@ -487,6 +488,7 @@ export function GpsCameraModal({
     if (!track) return;
     const nextState = !isTorchOn;
     try {
+      // SAFETY: Extended MediaTrackConstraintSet includes torch property for devices with flash
       await track.applyConstraints({
         advanced: [{ torch: nextState } as MediaTrackConstraintSetExtended],
       });
@@ -511,6 +513,7 @@ export function GpsCameraModal({
         try {
           const normX = x / rect.width;
           const normY = y / rect.height;
+          // SAFETY: Extended MediaTrackConstraintSet includes pointsOfInterest for tap-to-focus on mobile
           void track
             .applyConstraints({
               advanced: [

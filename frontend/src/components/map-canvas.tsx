@@ -22,13 +22,20 @@ type MapStyle = "voyager" | "satellite" | "terrain" | "osm";
 interface TileConfig {
   url: string;
   attribution: string;
-  subdomains?: string[];
+  subdomains?: string[] | undefined;
   maxZoom: number;
 }
 
-const MAP_TILE_CONFIGS: Record<MapStyle, TileConfig> = {
+const CARTO_API_KEY =
+  import.meta.env?.VITE_CARTO_API_KEY || "cb1_3pcr_1_d44daac8935a17eb2611ae46";
+
+const CARTO_VOYAGER_URL = CARTO_API_KEY
+  ? `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`
+  : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+
+const MAP_TILE_CONFIGS = {
   voyager: {
-    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    url: CARTO_VOYAGER_URL,
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>',
     subdomains: ["a", "b", "c", "d"],
@@ -38,6 +45,7 @@ const MAP_TILE_CONFIGS: Record<MapStyle, TileConfig> = {
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     attribution:
       "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
+    subdomains: undefined,
     maxZoom: 18,
   },
   terrain: {
@@ -54,7 +62,8 @@ const MAP_TILE_CONFIGS: Record<MapStyle, TileConfig> = {
     subdomains: ["a", "b", "c"],
     maxZoom: 19,
   },
-};
+} satisfies Record<MapStyle, TileConfig>;
+
 
 function MapViewportManager({
   problems,
@@ -160,7 +169,7 @@ export default function MapCanvas({
       : AP_DEFAULT_CENTER;
   const initialZoom = selected ? 13 : AP_DEFAULT_ZOOM;
 
-  const currentTileConfig = MAP_TILE_CONFIGS[mapStyle];
+  const currentTileConfig: TileConfig = MAP_TILE_CONFIGS[mapStyle];
 
   return (
     <div

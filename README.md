@@ -219,11 +219,15 @@ cd frontend
 # Install Node dependencies
 npm install
 
+# Optional: configure local environment (API URL and CARTO Basemaps key)
+# cp .env.example .env
+
 # Start Vite development server
 npm run dev
 ```
 
 * Frontend Local URL: `http://localhost:8080` (or `http://localhost:8081`)
+* CARTO Basemaps: Set `VITE_CARTO_API_KEY` in `frontend/.env` (or Vercel Settings > Environment Variables) to remove the watermark on Voyager tiles.
 
 ---
 

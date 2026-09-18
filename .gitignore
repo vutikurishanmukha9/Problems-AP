@@ -1,5 +1,5 @@
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,59 +7,77 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Node / Frontend
+# Node / Frontend Build Outputs
 node_modules/
-frontend/node_modules/
+*/node_modules/
 dist/
+*/dist/
 dist-ssr/
 .output/
-frontend/.output/
+*/.output/
 .vercel/
-frontend/.vercel/
+*/.vercel/
 .vinxi/
+*/.vinxi/
 .tanstack/
+*/.tanstack/
 .nitro/
+*/.nitro/
 *.local
+*.tsbuildinfo
 
 # Wrangler / Cloudflare
 .wrangler/
-frontend/.wrangler/
+*/.wrangler/
 .dev.vars
+.dev.vars.*
 
 # Python / Backend
 .venv/
-backend/.venv/
+*/.venv/
 __pycache__/
 */__pycache__/
 */**/__pycache__/
 *.py[cod]
+*$py.class
 *.db
+*.db-journal
 *.sqlite
 *.sqlite3
 .pytest_cache/
-backend/.pytest_cache/
+*/.pytest_cache/
 .ruff_cache/
+*/.ruff_cache/
 
-# Environment variables and secrets
+# Environment Variables & Secrets
 .env
+.env*.local
 .env.*
-!.env.example
+*.env
+*.env.*
 backend/.env
 frontend/.env
+!.env.example
+!frontend/.env.example
+!backend/.env.example
 
-# Agent configurations & Skills
+# Agent Configurations & Skills
 .agents/
 AGENTS.md
 GEMINI.md
 .gemini/
 
-# Editor directories and files
+# Operating System & Editor Files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 .vscode/*
 !.vscode/extensions.json
 .idea/
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
