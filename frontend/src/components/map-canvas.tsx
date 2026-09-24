@@ -22,8 +22,9 @@ type MapStyle = "voyager" | "satellite" | "terrain" | "osm";
 interface TileConfig {
   url: string;
   attribution: string;
-  subdomains?: string[] | undefined;
+  subdomains?: string[];
   maxZoom: number;
+  maxNativeZoom?: number;
 }
 
 const CARTO_API_KEY =
@@ -45,15 +46,17 @@ const MAP_TILE_CONFIGS = {
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     attribution:
       "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
-    subdomains: undefined,
-    maxZoom: 18,
+    subdomains: ["a", "b", "c"],
+    maxZoom: 20,
+    maxNativeZoom: 18,
   },
   terrain: {
     url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
     attribution:
       'Map data: &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
     subdomains: ["a", "b", "c"],
-    maxZoom: 17,
+    maxZoom: 20,
+    maxNativeZoom: 17,
   },
   osm: {
     url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -252,8 +255,9 @@ export default function MapCanvas({
           key={mapStyle}
           attribution={currentTileConfig.attribution}
           url={currentTileConfig.url}
-          subdomains={currentTileConfig.subdomains}
+          subdomains={currentTileConfig.subdomains ?? ["a", "b", "c"]}
           maxZoom={currentTileConfig.maxZoom}
+          maxNativeZoom={currentTileConfig.maxNativeZoom ?? currentTileConfig.maxZoom}
         />
 
         {/* Problem markers across Andhra Pradesh */}
