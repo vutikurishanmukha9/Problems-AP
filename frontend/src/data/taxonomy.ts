@@ -218,6 +218,9 @@ export {
   getMLAForConstituency,
   getDistrictForConstituency,
   getConstituenciesByDistrict,
+  inferConstituencyFromText,
+  resolveConstituency,
   type Constituency,
   type ConstituencyInfo,
 } from "./constituencies";
+

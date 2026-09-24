@@ -5,6 +5,7 @@ import {
   MINISTRIES_DATA,
   CATEGORIES,
   getCoordinatesForDistrict,
+  resolveConstituency,
   type StatusId,
 } from "@/data/taxonomy";
 
@@ -130,6 +131,7 @@ function mapBackendProblem(p: {
   category: string;
   department: string;
   constituency?: string;
+  mla?: string;
   district: string;
   area: string;
   latitude?: number;
@@ -159,15 +161,25 @@ function mapBackendProblem(p: {
   const resolvedLat = isLatValid ? rawLat : defaultDistrictCoords.lat + jitterLat;
   const resolvedLng = isLngValid ? rawLng : defaultDistrictCoords.lng + jitterLng;
 
+  // Smart Assembly Constituency & MLA auto-resolution
+  const cleanArea = p.area.replace(/\s*\(General\)/gi, "").trim();
+  const rawConst = p.constituency && p.constituency.toLowerCase() !== "general" ? p.constituency : undefined;
+  const resolved = resolveConstituency(rawConst, cleanArea || p.area, p.district);
+
+  const finalConstituency = resolved?.constituency ?? rawConst ?? "";
+  const finalMla = p.mla || resolved?.mla;
+  const finalDistrict = resolved?.district || p.district;
+
   return {
     id: p.id,
     title: p.title,
     description: p.description,
     category: parseCategory(p.category),
     department: p.department,
-    constituency: p.constituency ?? "General",
-    district: p.district,
-    area: p.area,
+    constituency: finalConstituency,
+    mla: finalMla,
+    district: finalDistrict,
+    area: cleanArea || p.area,
     lat: resolvedLat,
     lng: resolvedLng,
     reportedAt: normalizedReportedAt,

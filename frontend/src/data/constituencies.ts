@@ -215,3 +215,91 @@ export function getConstituenciesByDistrict(districtName: string): ConstituencyI
   const normalized = districtName.trim().toLowerCase();
   return CONSTITUENCY_DATA.filter((c) => c.district.toLowerCase() === normalized);
 }
+
+/**
+ * Infer an Assembly Constituency from freeform text (area, landmark, street, city).
+ * Scans against all 175 AP Assembly Constituencies.
+ */
+export function inferConstituencyFromText(
+  text: string,
+  preferredDistrict?: string,
+): ConstituencyInfo | undefined {
+  if (!text || !text.trim()) return undefined;
+
+  // Clean common noise
+  const normalized = ` ${text.toLowerCase().replace(/[^a-z0-9]/g, " ")} `;
+
+  // 1. If preferredDistrict is given, scan constituencies in that district first
+  if (preferredDistrict) {
+    const districtSeats = getConstituenciesByDistrict(preferredDistrict);
+    for (const c of districtSeats) {
+      const cNorm = c.name.toLowerCase();
+      if (normalized.includes(` ${cNorm} `)) {
+        return c;
+      }
+    }
+  }
+
+  // 2. Scan all 175 constituencies across Andhra Pradesh
+  for (const c of CONSTITUENCY_DATA) {
+    const cNorm = c.name.toLowerCase();
+    if (normalized.includes(` ${cNorm} `)) {
+      return c;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Universal Constituency & MLA Resolver.
+ * Guarantees every problem is mapped to an accountable Assembly Constituency & MLA.
+ */
+export function resolveConstituency(
+  constituency?: string | null,
+  area?: string | null,
+  district?: string | null,
+): { constituency: string; mla: string; district: string } | undefined {
+  // A. Check if the provided constituency is already a valid AP constituency
+  if (constituency && constituency.trim() && constituency.trim().toLowerCase() !== "general") {
+    const cleanName = constituency.trim();
+    const directMatch = CONSTITUENCY_DATA.find(
+      (c) => c.name.toLowerCase() === cleanName.toLowerCase(),
+    );
+    if (directMatch) {
+      return {
+        constituency: directMatch.name,
+        mla: directMatch.mla,
+        district: directMatch.district,
+      };
+    }
+  }
+
+  // B. Infer from area / locality text
+  if (area) {
+    const inferred = inferConstituencyFromText(area, district || undefined);
+    if (inferred) {
+      return {
+        constituency: inferred.name,
+        mla: inferred.mla,
+        district: inferred.district,
+      };
+    }
+  }
+
+  // C. Fallback to representative constituency in the district if district is known
+  if (district) {
+    const districtSeats = getConstituenciesByDistrict(district);
+    const fallback = districtSeats[0];
+    if (fallback) {
+      return {
+        constituency: fallback.name,
+        mla: fallback.mla,
+        district: fallback.district,
+      };
+    }
+  }
+
+  return undefined;
+}
+

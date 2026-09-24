@@ -25,7 +25,7 @@ import {
   type TimelineEntry,
 } from "@/data/problems";
 import { categoryLabel, getMinisterForDepartment } from "@/data/taxonomy";
-import { getMLAForConstituency } from "@/data/constituencies";
+import { getMLAForConstituency, resolveConstituency } from "@/data/constituencies";
 import { apiClient } from "@/lib/api-client";
 
 export const Route = createFileRoute("/problems/$id")({
@@ -91,6 +91,19 @@ function ProblemDetail() {
   const [copiedRef, setCopiedRef] = useState(false);
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
   const [related, setRelated] = useState<Problem[]>([]);
+
+  const cleanArea = p.area.replace(/\s*\(General\)/gi, "").trim() || p.area;
+  const rawConst =
+    p.constituency && p.constituency.toLowerCase() !== "general"
+      ? p.constituency
+      : undefined;
+  const resolved = resolveConstituency(rawConst, cleanArea, p.district);
+  const displayConstituency = resolved?.constituency || rawConst;
+  const displayMla =
+    p.mla ||
+    resolved?.mla ||
+    (displayConstituency ? getMLAForConstituency(displayConstituency) : null);
+  const displayDistrict = resolved?.district || p.district;
 
   // Sync state when navigating between problems (e.g. from related problems)
   useEffect(() => {
@@ -173,27 +186,27 @@ function ProblemDetail() {
                       {p.department}
                       {getMinisterForDepartment(p.department) ? (
                         <span className="ml-1 text-xs font-normal text-ink-2">
-                          (Minister: {getMinisterForDepartment(p.department)?.minister})
+                          (Minister: <span className="font-medium text-ink">{getMinisterForDepartment(p.department)?.minister}</span>)
                         </span>
                       ) : null}
                     </dd>
                   </div>
-                  {p.constituency && (
-                    <div className="flex items-center gap-1.5">
+                  {displayConstituency ? (
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <dt className="text-ink-3 font-medium">Constituency:</dt>
                       <dd className="font-bold text-accent">
-                        {p.constituency}
-                        {getMLAForConstituency(p.constituency) ? (
+                        {displayConstituency}
+                        {displayMla ? (
                           <span className="ml-1 text-xs font-normal text-ink-2">
-                            (MLA: {getMLAForConstituency(p.constituency)})
+                            (MLA: <span className="font-semibold text-accent">{displayMla}</span>)
                           </span>
                         ) : null}
                       </dd>
                     </div>
-                  )}
+                  ) : null}
                   <div className="flex items-center gap-1.5">
                     <dt className="text-ink-3 font-medium">District:</dt>
-                    <dd className="font-bold text-ink">{p.district}</dd>
+                    <dd className="font-bold text-ink">{displayDistrict}</dd>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <dt className="text-ink-3 font-medium">Ref ID:</dt>
@@ -226,10 +239,10 @@ function ProblemDetail() {
                 <div className="mt-3.5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-2">
                   <span className="inline-flex items-center gap-1 font-medium">
                     <MapPin aria-hidden className="size-3.5 text-accent" />
-                    {p.area}
-                    {p.constituency && p.constituency !== p.area
-                      ? ` (${p.constituency})`
-                      : ""}, {p.district}
+                    {cleanArea}
+                    {displayConstituency && displayConstituency.toLowerCase() !== cleanArea.toLowerCase()
+                      ? ` (${displayConstituency})`
+                      : ""}, {displayDistrict}
                   </span>
                   <span className="inline-flex items-center gap-1 text-ink-3 font-medium">
                     <Clock aria-hidden className="size-3.5" />

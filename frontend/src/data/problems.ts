@@ -14,6 +14,7 @@ export type Problem = {
   category: string;
   department: string;
   constituency: string;
+  mla?: string | undefined;
   area: string;
   district: string;
   lat: number;

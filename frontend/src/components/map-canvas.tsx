@@ -300,7 +300,11 @@ export default function MapCanvas({
 
                   <p className="mt-1 text-[0.6875rem] text-ink-2 truncate">
                     📍 {p.area}
-                    {p.constituency ? ` (${p.constituency})` : ""}, {p.district}
+                    {p.constituency &&
+                    p.constituency.toLowerCase() !== "general" &&
+                    p.constituency.toLowerCase() !== p.area.toLowerCase()
+                      ? ` (${p.constituency})`
+                      : ""}, {p.district}
                   </p>
 
                   <div className="mt-2.5 flex items-center justify-between border-t border-line/60 pt-2 text-[0.6875rem] text-ink-3">

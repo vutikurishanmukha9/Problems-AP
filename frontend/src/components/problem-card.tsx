@@ -52,7 +52,9 @@ export function ProblemCard({ problem }: { problem: Problem }) {
             <MapPin aria-hidden="true" className="size-3.5 shrink-0 text-accent" />
             <span className="truncate">
               {problem.area}
-              {problem.constituency && problem.constituency !== problem.area
+              {problem.constituency &&
+              problem.constituency.toLowerCase() !== "general" &&
+              problem.constituency.toLowerCase() !== problem.area.toLowerCase()
                 ? ` (${problem.constituency})`
                 : ""}
             </span>
@@ -96,7 +98,9 @@ export function ProblemRow({
           <span className="inline-flex items-center gap-1 font-medium">
             <MapPin aria-hidden className="size-3.5 text-accent" />
             {problem.area}
-            {problem.constituency && problem.constituency !== problem.area
+            {problem.constituency &&
+            problem.constituency.toLowerCase() !== "general" &&
+            problem.constituency.toLowerCase() !== problem.area.toLowerCase()
               ? ` (${problem.constituency})`
               : ""}
             , {problem.district}

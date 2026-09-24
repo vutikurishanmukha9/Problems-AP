@@ -76,11 +76,22 @@ DISTRICT_COORDS = {
 async def _enrich_problem(problem: Problem, db: AsyncSession) -> ProblemOut:
     """Enriches problem with elected MLA name and District Headquarters from taxonomy tables."""
     mla_name = None
-    if problem.constituency:
+    resolved_constituency = problem.constituency
+    if resolved_constituency and resolved_constituency.strip().lower() != "general":
         stmt = select(Constituency.mla).where(
-            func.lower(Constituency.name) == problem.constituency.strip().lower()
+            func.lower(Constituency.name) == resolved_constituency.strip().lower()
         )
         mla_name = (await db.execute(stmt)).scalar()
+    else:
+        # Auto-infer constituency from area / locality if missing or marked "General"
+        if problem.area:
+            all_consts = (await db.execute(select(Constituency))).scalars().all()
+            area_lower = f" {problem.area.lower()} "
+            for c in all_consts:
+                if f" {c.name.lower()} " in area_lower or c.name.lower() in problem.area.lower():
+                    resolved_constituency = c.name
+                    mla_name = c.mla
+                    break
 
     dist_hq = None
     if problem.district:
@@ -95,7 +106,7 @@ async def _enrich_problem(problem: Problem, db: AsyncSession) -> ProblemOut:
         description=problem.description,
         category=problem.category,
         department=problem.department,
-        constituency=problem.constituency,
+        constituency=resolved_constituency,
         mla=mla_name,
         district=problem.district,
         district_hq=dist_hq,
@@ -281,13 +292,23 @@ async def report_problem(payload: ProblemCreate, db: AsyncSession = Depends(get_
     final_lat = payload.latitude if payload.latitude is not None and payload.latitude > 0 else default_lat
     final_lng = payload.longitude if payload.longitude is not None and payload.longitude > 0 else default_lng
 
+    # Resolve constituency (auto-infer from area if omitted or general)
+    final_constituency = payload.constituency.strip() if payload.constituency and payload.constituency.strip().lower() != "general" else None
+    if not final_constituency and payload.area:
+        all_consts = (await db.execute(select(Constituency))).scalars().all()
+        clean_area_text = payload.area.lower()
+        for c in all_consts:
+            if c.name.lower() in clean_area_text:
+                final_constituency = c.name
+                break
+
     problem = Problem(
         id=problem_id,
         title=sanitize_input(payload.title),
         description=sanitize_input(payload.description),
         category=payload.category.strip().lower(),
         department=dept,
-        constituency=payload.constituency.strip() if payload.constituency else None,
+        constituency=final_constituency,
         district=payload.district.strip(),
         area=sanitize_input(payload.area),
         latitude=final_lat,

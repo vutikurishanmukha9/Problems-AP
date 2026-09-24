@@ -12,6 +12,8 @@ import {
   getDistrictForConstituency,
   getConstituenciesByDistrict,
   getCoordinatesForDistrict,
+  inferConstituencyFromText,
+  resolveConstituency,
 } from "@/data/taxonomy";
 import { getMLAForConstituency } from "@/data/constituencies";
 import { formatDateTime } from "@/data/problems";
@@ -131,6 +133,18 @@ function ReportPage() {
         setDistrict(addrDetails.district);
       }
 
+      // Auto-match Assembly Constituency from GPS-resolved address if not already selected
+      if (!constituency) {
+        const inferred = inferConstituencyFromText(
+          `${addrDetails.primaryTitle} ${addrDetails.fullAddress} ${addrDetails.mandal || ""}`,
+          addrDetails.district,
+        );
+        if (inferred) {
+          setConstituency(inferred.name);
+          if (inferred.district) setDistrict(inferred.district);
+        }
+      }
+
       const fallbackArea = `GPS Location (${latitude.toFixed(6)}, ${longitude.toFixed(6)})`;
       setLoc({
         kind: "ok",
@@ -223,6 +237,16 @@ function ReportPage() {
       if (stamped.district) {
         setDistrict(stamped.district);
       }
+      if (!constituency) {
+        const inferred = inferConstituencyFromText(
+          `${fullAddressTitle} ${stamped.area || ""}`,
+          stamped.district,
+        );
+        if (inferred) {
+          setConstituency(inferred.name);
+          if (inferred.district) setDistrict(inferred.district);
+        }
+      }
       if (!manualArea) {
         setManualArea(fullAddressTitle);
       }
@@ -232,13 +256,10 @@ function ReportPage() {
   const canContinue = () => {
     if (step === 0) return Boolean(category);
     if (step === 1) return description.trim().length >= 20;
-    if (step === 2)
-      return (
-        loc.kind === "ok" ||
-        manualArea.trim().length > 2 ||
-        Boolean(constituency) ||
-        Boolean(district)
-      );
+    if (step === 2) {
+      const hasArea = loc.kind === "ok" || manualArea.trim().length >= 2;
+      return hasArea && Boolean(constituency);
+    }
     return true;
   };
 
@@ -249,7 +270,9 @@ function ReportPage() {
           ? "Choose a category to continue."
           : step === 1
             ? "Please describe the problem in at least a sentence or two."
-            : "Select your constituency or share your location / area.",
+            : !constituency
+              ? "Please select your Assembly Constituency so your local elected MLA is held accountable."
+              : "Please enter your locality, landmark, or capture GPS location.",
       );
       return;
     }
@@ -289,13 +312,18 @@ function ReportPage() {
         }
       }
 
-      const districtCoords = getCoordinatesForDistrict(district);
+      // Authoritatively resolve Assembly Constituency & MLA
+      const resolved = resolveConstituency(constituency, areaVal, district);
+      const finalConstituency = resolved?.constituency || constituency || undefined;
+      const finalDistrict = resolved?.district || district || "Visakhapatnam";
+
+      const districtCoords = getCoordinatesForDistrict(finalDistrict);
       const result = await apiClient.submitProblem({
         title: titleVal,
         description: description.trim(),
         category,
-        constituency: constituency || undefined,
-        district: district || "Visakhapatnam",
+        constituency: finalConstituency,
+        district: finalDistrict,
         area: areaVal,
         latitude: loc.kind === "ok" ? loc.lat : districtCoords.lat,
         longitude: loc.kind === "ok" ? loc.lng : districtCoords.lng,
@@ -544,12 +572,15 @@ function ReportPage() {
                       htmlFor="constituency"
                       className="block text-xs font-semibold uppercase tracking-wider text-ink-2"
                     >
-                      Assembly Constituency
+                      Assembly Constituency <span className="text-accent font-bold">*</span>
                     </label>
                     <span className="text-[0.6875rem] font-semibold text-ink-3">
                       {district ? `${getConstituenciesByDistrict(district).length} in ${district}` : "175 Total"}
                     </span>
                   </div>
+                  <p className="mt-0.5 text-[0.6875rem] text-ink-3">
+                    Every grievance is directly routed to the elected MLA of this constituency for local legislative accountability.
+                  </p>
                   <select
                     id="constituency"
                     value={constituency}
@@ -602,8 +633,18 @@ function ReportPage() {
                   <input
                     id="area"
                     value={manualArea}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setManualArea(e.target.value)}
-                    placeholder="e.g. Near Main Market, Danavaipeta"
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                      const val = e.target.value;
+                      setManualArea(val);
+                      if (!constituency && val.trim().length >= 3) {
+                        const matched = inferConstituencyFromText(val, district);
+                        if (matched) {
+                          setConstituency(matched.name);
+                          if (matched.district) setDistrict(matched.district);
+                        }
+                      }
+                    }}
+                    placeholder="e.g. Near Main Market, Danavaipeta, Palakonda"
                     className="mt-1.5 h-10 w-full rounded-lg border border-line bg-surface px-3 text-sm placeholder:text-ink-3"
                   />
                 </div>
